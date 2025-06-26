@@ -1,0 +1,13 @@
+surface reconstrucion vcg
+change layer and delete old layer
+meshing surface subdivision loop
+poisson-disk sampling
+voronoi vertex coloring
+select by vertex quality
+invert selection
+delete those selections
+laplacian smooth
+uniform mesh resampling
+laplacian smooth
+save your .stl file
+then we view it in pyvista
