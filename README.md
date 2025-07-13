@@ -2,8 +2,7 @@
 
 # MeshTBD
 
-_Joshua Davidov and Ahikara Sandrasagra_
-Cooper Union
+_Joshua Davidov and Ahikara Sandrasagra_ | Cooper Union
 
 </div>
 
