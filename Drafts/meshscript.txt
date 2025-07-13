@@ -1,0 +1,64 @@
+import pyvista as pv
+import pymeshlab as pyml
+import numpy as np
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 1.  Run the PyMeshLab pipeline  (unchanged)
+# ──────────────────────────────────────────────────────────────────────────────
+ms = pyml.MeshSet()
+ms.load_new_mesh("Just forearm.stl")
+surface_id = ms.current_mesh_id()
+
+ms.generate_surface_reconstruction_vcg(voxsize=pyml.PercentageValue(0.499991))
+ms.set_current_mesh(1)
+ms.save_current_mesh("plymcout.ply")
+ms.load_new_mesh("plymcout.ply")
+
+ms.meshing_surface_subdivision_loop(threshold=pyml.PercentageValue(0.500009))
+ms.generate_sampling_poisson_disk(samplenum=50, exactnumflag=True)
+pointcloud_id = ms.current_mesh_id()
+
+ms.set_current_mesh(surface_id)
+ms.compute_color_by_point_cloud_voronoi_projection(
+    coloredmesh=surface_id,
+    vertexmesh=pointcloud_id,
+    backward=True,
+)
+
+ms.save_current_mesh("z.ply")
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 2.  Load in PyVista and make the colours opaque
+# ──────────────────────────────────────────────────────────────────────────────
+mesh = pv.read("z.ply")
+n_pts = mesh.n_points
+
+if "RGBA" in mesh.point_data:
+    raw = np.asarray(mesh.point_data["RGBA"])          # returns a NumPy view
+
+    # ── reshape to (n_pts, n_comp) if needed ─────────────────────────────────
+    if raw.ndim == 1:                                  # flattened
+        n_comp = raw.size // n_pts
+        raw = raw.reshape(n_pts, n_comp)
+
+    # ── keep only the first three channels (R,G,B) ───────────────────────────
+    if raw.shape[1] >= 3:
+        rgb = raw[:, :3].astype(np.uint8).copy()       # make it writable
+        mesh.point_data.pop("RGBA")
+        mesh.point_data["RGB"] = rgb
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 4.  LET THE FIRE BURN
+# ──────────────────────────────────────────────────────────────────────────────
+ms.load_new_mesh("z.ply")
+ms.compute_selection_by_scalar_per_vertex(minq = 0.000000, maxq = 2.914720)
+ms.apply_selection_inverse()
+ms.meshing_remove_selected_faces()
+# ──────────────────────────────────────────────────────────────────────────────
+# 3.  Plot with the intended colours, fully opaque
+# ──────────────────────────────────────────────────────────────────────────────
+mesh.plot(
+    rgb=True,               # literal vertex colours
+    show_scalar_bar=False,
+    background="white",
+)

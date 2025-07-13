@@ -91,8 +91,8 @@ dists = dijkstra(G,
 print('Geodesic distances computed!')
 
 # 8. Painting the mesh 
-vmin, vmax = np.percentile(dists, [2, 98])
-norm = mpl.colors.PowerNorm(gamma=0.7, vmin=vmin, vmax=vmax, clip=True)
+vmin, vmax = np.percentile(dists, [0, 100])
+norm = mpl.colors.PowerNorm(gamma=0.70, vmin=vmin, vmax=vmax, clip=True)
 colors = plt.cm.plasma_r(norm(dists))[:, :3]  # drop the alpha channel            # type: ignore
 open3d_mesh.vertex_colors = o3d.utility.Vector3dVector(colors)
 print('Mesh painted!')
