@@ -2,6 +2,9 @@
 
 # MeshTBD
 
+_Joshua Davidov and Ahikara Sandrasagra_
+Cooper Union
+
 </div>
 
 ## Why?
