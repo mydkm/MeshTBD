@@ -79,7 +79,7 @@ if use_ml:
 
 if not use_ml:
     # fabricate a qualitative palette with distinct hues
-    ml_col_rgb = plt.cm.tab20(np.linspace(0, 1, len(sample_pts)))[:, :3]
+    ml_col_rgb = plt.cm.tab20(np.linspace(0, 1, len(sample_pts)))[:, :3] # type: ignore
 
 # make sure the array is contiguous float64 → Open3D friendly
 seed_rgb = np.ascontiguousarray(ml_col_rgb, dtype=np.float64)
@@ -87,7 +87,6 @@ seed_rgb = np.ascontiguousarray(ml_col_rgb, dtype=np.float64)
 # hand colours to Open3D
 regpcd.colors = o3d.utility.Vector3dVector(seed_rgb)
 # ────────────────────────────────────────────────────────────────────────────
-
 
 # ════════════════════════════════════════════════════════════════════════════
 # 6.  Build an undirected edge‑length graph of the mesh       ← SAME AS BEFORE

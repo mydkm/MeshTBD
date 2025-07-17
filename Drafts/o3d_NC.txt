@@ -60,7 +60,7 @@ print('Poisson disk sampling completed!')
 # print('Vertex-PCD distance computed!')
 
 # ------------------------------------------------------------------
-# 8.  Build an undirected edge‑length graph of the reconstructed mesh
+# 9.  Build an undirected edge‑length graph of the reconstructed mesh
 # ------------------------------------------------------------------
 import scipy.sparse as sp
 from scipy.sparse.csgraph import dijkstra          # multi‑source Dijkstra:contentReference[oaicite:0]{index=0}
@@ -87,7 +87,7 @@ data = np.hstack((edge_lens, edge_lens))
 G = sp.coo_matrix((data, (rows, cols)), shape=(n, n)).tocsr()
 
 # ------------------------------------------------------------------
-# 9.  Identify source vertices and run multi‑source Dijkstra
+# 10.  Identify source vertices and run multi‑source Dijkstra
 # ------------------------------------------------------------------
 # map each point in regpcd to its nearest *mesh* vertex index
 kdt = cKDTree(V)
@@ -101,7 +101,7 @@ dists = dijkstra(G,
 
 print('Geodesic distances computed!')
 
-# 10. Painting the mesh -------------------------------------------------------
+# 11. Painting the mesh -------------------------------------------------------
 vmin, vmax = np.percentile(dists, [2, 98])
 norm = mpl.colors.PowerNorm(gamma=0.6, vmin=vmin, vmax=vmax, clip=True)
 colors = plt.cm.plasma_r(norm(dists))[:, :3]   # drop the alpha channel # type: ignore

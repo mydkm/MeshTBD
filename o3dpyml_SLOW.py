@@ -13,8 +13,8 @@ surface_id = ms.current_mesh_id()
 
 ms.generate_surface_reconstruction_vcg(voxsize=pyml.PercentageValue(0.499991))
 ms.set_current_mesh(1)
-ms.save_current_mesh("plymcout.ply")
-ms.load_new_mesh("plymcout.ply")
+ms.save_current_mesh("a1.ply")
+ms.load_new_mesh("a1.ply")
 
 ms.meshing_surface_subdivision_loop(threshold=pyml.PercentageValue(0.500009))
 ms.generate_sampling_poisson_disk(samplenum=50, exactnumflag=True)
@@ -27,12 +27,12 @@ ms.compute_color_by_point_cloud_voronoi_projection(
     backward=True,
 )
 
-ms.save_current_mesh("z.ply")   # coloured, *unfiltered* mesh
+ms.save_current_mesh("a2.ply")   # coloured, *unfiltered* mesh
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 2.  Load with PyVista and strip the (transparent) alpha channel
 # ──────────────────────────────────────────────────────────────────────────────
-mesh = pv.read("z.ply")
+mesh = pv.read("a2.ply")
 n_pts = mesh.n_points
 
 if "RGBA" in mesh.point_data:
@@ -74,20 +74,28 @@ print(f"[surface]  final surface has {red_mesh.n_points} pts, "
 # ──────────────────────────────────────────────────────────────────────────────
 # 4b. Save the CLEANED mesh to disk
 # ──────────────────────────────────────────────────────────────────────────────
-out_path = "only_red.ply"
+out_path = "a3.ply"
 red_mesh.save(out_path)                    # works: PolyData → .ply
 print(f"Wrote filtered mesh to {Path(out_path).resolve()}")
 
 # (Optional) bring it back into PyMeshLab
 ms_red = pyml.MeshSet()
-ms_red.load_new_mesh(out_path)
+ms_red.load_new_mesh('a3.ply')
+
+ms_red.apply_coord_laplacian_smoothing(stepsmoothnum = 50, cotangentweight = False)
+
+ms_red.save_current_mesh("a4.ply")
+
+ms_red.load_new_mesh('a4.ply')
+
+ms_red.generate_resampled_uniform_mesh(cellsize = pyml.PercentageValue(0.2), offset = pyml.PercentageValue(3.0), mergeclosevert = True, multisample = True, absdist = True)
+
+ms_red.save_current_mesh("a5.ply")
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 5.  Plot the cleaned mesh
 # ──────────────────────────────────────────────────────────────────────────────
-red_mesh.plot(
-    rgb=True,
-    show_scalar_bar=False,
-    background="white",
-)
+mesh2 = pv.read('a5.ply')
+mesh2.plot()
+
 

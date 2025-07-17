@@ -1,5 +1,5 @@
-import pymeshlab as pyml
-import pyvista as pv
+import pymeshlab as pyml # type: ignore
+import pyvista as pv # type: ignore
 import numpy as np
 from matplotlib.colors import rgb_to_hsv
 
@@ -36,7 +36,7 @@ hsv = rgb_to_hsv(rgb.astype(float) / 255.0)
 red_like = (hsv[:, 0] <= 50/360.0) & (hsv[:, 1] >= 0.25)
 mesh["keep"] = red_like.astype(np.uint8)
 
-red_mesh = mesh.threshold((0.5, 1.5), scalars="keep", all_scalars=False)
+red_mesh = mesh.threshold((0.5, 1.5), scalars="keep", all_scalars=True)
 red_mesh = red_mesh.extract_surface()      # ensure triangle faces
 red_mesh.save("a.ply")                     # ← TRUE hand‑off
 

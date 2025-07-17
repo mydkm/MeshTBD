@@ -1,9 +1,11 @@
-import pyvista as pv
-import pymeshlab as pyml
+import pymeshlab as pyml #type:ignore
+import pyvista as pv #type:ignore
 import numpy as np
+from matplotlib.colors import rgb_to_hsv   # convenient RGB→HSV converter
+from pathlib import Path
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 1.  Run the PyMeshLab pipeline  (unchanged)
+# 1.  PyMeshLab pipeline (unchanged)
 # ──────────────────────────────────────────────────────────────────────────────
 ms = pyml.MeshSet()
 ms.load_new_mesh("Just forearm.stl")
@@ -28,37 +30,61 @@ ms.compute_color_by_point_cloud_voronoi_projection(
 ms.save_current_mesh("z.ply")
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 2.  Load in PyVista and make the colours opaque
+# 2.  Load with PyVista and strip the (transparent) alpha channel
 # ──────────────────────────────────────────────────────────────────────────────
 mesh = pv.read("z.ply")
 n_pts = mesh.n_points
 
 if "RGBA" in mesh.point_data:
-    raw = np.asarray(mesh.point_data["RGBA"])          # returns a NumPy view
-
-    # ── reshape to (n_pts, n_comp) if needed ─────────────────────────────────
-    if raw.ndim == 1:                                  # flattened
-        n_comp = raw.size // n_pts
-        raw = raw.reshape(n_pts, n_comp)
-
-    # ── keep only the first three channels (R,G,B) ───────────────────────────
-    if raw.shape[1] >= 3:
-        rgb = raw[:, :3].astype(np.uint8).copy()       # make it writable
-        mesh.point_data.pop("RGBA")
-        mesh.point_data["RGB"] = rgb
+    rgba = np.asarray(mesh.point_data["RGBA"])
+    if rgba.ndim == 1:                      # flattened (4*n) → (n,4)
+        rgba = rgba.reshape(n_pts, 4)
+    rgb = rgba[:, :3].astype(np.uint8).copy()
+    mesh.point_data.pop("RGBA")
+    mesh.point_data["RGB"] = rgb
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 4.  LET THE FIRE BURN
+# 3.  Identify red/orange vertices (HSV filter)
 # ──────────────────────────────────────────────────────────────────────────────
-ms.load_new_mesh("z.ply")
-ms.compute_selection_by_scalar_per_vertex(minq = 0.000000, maxq = 2.914720)
-ms.apply_selection_inverse()
-ms.meshing_remove_selected_faces()
+# normalise to [0,1] for rgb_to_hsv()
+rgb_norm = mesh["RGB"].astype(float) / 255.0
+hsv      = rgb_to_hsv(rgb_norm)            # columns: H in [0,1], S, V
+
+hue        = hsv[:, 0]                     # 0  → red, 0.14 → 50°
+saturation = hsv[:, 1]
+
+red_like = (hue <= 50/360.0) & (saturation >= 0.25)
+
+# add a scalar mask so we can threshold
+mesh["keep"] = red_like.astype(np.uint8)
+
 # ──────────────────────────────────────────────────────────────────────────────
-# 3.  Plot with the intended colours, fully opaque
+# 4.  Extract only the cells whose *all* vertices are red/orange
+#     (threshold() with all_scalars=True keeps a cell only if every point
+#      satisfies the criterion)
 # ──────────────────────────────────────────────────────────────────────────────
-mesh.plot(
-    rgb=True,               # literal vertex colours
+red_mesh = mesh.threshold(
+    (0.5, 1.5),          # keep == 1
+    scalars="keep",
+    all_scalars=True
+)
+
+ms.save_current_mesh("a.ply")
+
+ms2 = pyml.MeshSet()
+ms2.load_new_mesh('a.ply')
+
+#ms2.generate_resampled_uniform_mesh(mergeclosevert = True, discretize = False, multisample = True, absdist = True)
+# ms.apply_coord_laplacian_smoothing(stepsmoothnum = 100, cotangentweight = False)
+
+#ms.save_current_mesh('new.ply')        # save *after* resampling
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 5.  Plot the cleaned mesh
+# ──────────────────────────────────────────────────────────────────────────────
+resampled = pv.read('a.ply')
+resampled.plot(
+    rgb=True,
     show_scalar_bar=False,
     background="white",
 )
