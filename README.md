@@ -19,7 +19,7 @@ Modern 3D processing software sucks, especially when it comes to its scripting c
 
 ## Getting Started
 
-Note the naming conventions are as follows:
+Note the naming conventions for the python scripts in this repository are as follows:
 'tags+includedPackages_currentProgress'
 
 TBD!

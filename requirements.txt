@@ -1,5 +1,6 @@
 numpy
 pymeshlab
-open3d
+polyscope
+bpy
 scipy
 pyvista
