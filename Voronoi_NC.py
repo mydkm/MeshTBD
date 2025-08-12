@@ -1,5 +1,4 @@
 import bpy  # type: ignore
-import addon_utils  # type: ignore
 import pymeshlab as ml  # type: ignore
 import pyvista as pv  # type: ignore
 import numpy as np  # type: ignore
@@ -10,11 +9,10 @@ import os  # to implement: support of input args
 
 # PyMeshlab preprocessing
 ms = ml.MeshSet()
-ms.load_new_mesh("Just forearm.stl")
+ms.load_new_mesh("Sabrina-scanSuccess-in.stl")
 
 ms.generate_surface_reconstruction_vcg(voxsize=ml.PercentageValue(0.50))
 print("Reconstruction complete!")
-ms.load_new_mesh("plymcout.ply")
 surface_id = ms.current_mesh_id()
 
 ms.meshing_surface_subdivision_loop(threshold=ml.PercentageValue(0.50))
@@ -110,10 +108,16 @@ bm.free()
 obj = bpy.data.objects.new("pymlMesh", me)
 bpy.context.collection.objects.link(obj)
 
+displace = obj.modifiers.new(name="Displace", type='DISPLACE')
+displace.strength = 1.5  # Adjust displacement strength
+displace.mid_level = 0.5 # Adjust mid-level (value that gives no displacement)
+displace.direction = 'NORMAL' # Displacement direction (e.g., 'NORMAL', 'X', 'Y', 'Z', 'RGB_TO_XYZ')
+displace.space = 'LOCAL' # Displacement space (e.g., 'LOCAL', 'GLOBAL')
 solid = obj.modifiers.new(name="Solidify", type="SOLIDIFY")
 solid.thickness = 1.5  # metres; tweak to taste
 solid.offset = 1.0  # -1 = inward, +1 = outward, 0 = both sides
-solid.use_even_offset = False  # uniform thickness around sharp bends
+solid.use_even_offset = True  # uniform thickness around sharp bends
+bpy.ops.object.modifier_apply(modifier=displace.name)
 bpy.ops.object.modifier_apply(modifier=solid.name)
 print("Mesh thickened!")
 
