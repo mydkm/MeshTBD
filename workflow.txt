@@ -1,13 +1,14 @@
+scaling to body part size
 surface reconstrucion vcg
-change layer and delete old layer
 meshing surface subdivision loop
 poisson-disk sampling
 voronoi vertex coloring
-select by vertex quality
-invert selection
+convert to pyvista mesh
+select by vertex color
 delete those selections
-laplacian smooth
-uniform mesh resampling
-laplacian smooth
-save your .stl file
-then we view it in pyvista
+isotropic explicit remeshing
+blender displace filter
+blender thicken filter
+"smoothing": to implement smoothing for edges of cast holes
+save your .stl/.ply file
+profit
