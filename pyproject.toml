@@ -1,0 +1,19 @@
+[project]
+name = "MeshTBD"
+version = "0.1.0"
+description = "Modern 3D processing software sucks, especially when it comes to its scripting capabiltiies. We aren't tackling a full app as of yet, we're starting with turning a 3D model of a body part into a cast with a Voronoi pattern."
+readme = "README.md"
+requires-python = "==3.11.13"
+dependencies = [
+    "bpy>=4.5.1",
+    "numpy>=1.26.4",
+    "polyscope>=2.4.0",
+    "pymeshlab>=2023.12.post3",
+    "pyvista>=0.46.1",
+    "scipy>=1.16.1",
+]
+
+[tool.uv]
+required-environments = [
+	"sys_platform == 'linux' and platform_machine == 'x86_64' and python_version == '3.11'"
+]
