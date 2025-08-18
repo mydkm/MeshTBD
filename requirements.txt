@@ -1,6 +1,0 @@
-numpy
-pymeshlab
-polyscope
-bpy
-scipy
-pyvista
