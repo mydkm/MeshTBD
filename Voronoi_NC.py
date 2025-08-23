@@ -1,12 +1,21 @@
 import bpy  
 import pymeshlab as ml  
 import pyvista as pv  
-import numpy as np  
+import numpy as np 
 from matplotlib.colors import rgb_to_hsv  
 from pathlib import Path
 import bmesh  
 import os
 import argparse
+
+def mesh_clean(ms: ml.MeshSet):
+    ms.meshing_remove_duplicate_vertices()
+    ms.meshing_remove_duplicate_faces()
+    ms.meshing_remove_null_faces()
+    ms.meshing_remove_unreferenced_vertices()
+    ms.meshing_repair_non_manifold_edges()
+    ms.meshing_repair_non_manifold_vertices()
+    print("Mesh hygiene accounted for!")
 
 parser = argparse.ArgumentParser(
     description="Hello fellow meshers, step right up to see a body part (currently accepting .stl/.ply IO's) be turned into a cast. We're the only magicians that reveal our secrets though, come see how we do it at 'https://github.com/mydkm/MeshTBD'!"
@@ -24,7 +33,8 @@ print("Output file is", outputfile)
 ms = ml.MeshSet()
 ms.load_new_mesh(inputfile)
 
-# ms.compute_matrix_from_scaling_or_normalization(axisx = 15.000000, axisy = 15.000000, axisz = 15.000000)
+mesh_clean(ms)
+ms.compute_matrix_from_scaling_or_normalization(axisx = 15.000000, axisy = 15.000000, axisz = 15.000000)
 # note the scaling feature is still in progress, need to figure out how to choose an appropiate value
 ms.generate_surface_reconstruction_vcg(voxsize=ml.PercentageValue(0.50))
 print("Reconstruction complete!")
@@ -32,7 +42,7 @@ surface_id = ms.current_mesh_id()
 
 ms.meshing_surface_subdivision_loop(threshold=ml.PercentageValue(0.50))
 print("Subdivision complete!")
-ms.generate_sampling_poisson_disk(samplenum=50, exactnumflag=True)
+ms.generate_sampling_poisson_disk(samplenum=75, exactnumflag=True)
 print("Point cloud generated!")
 pointcloud_id = ms.current_mesh_id()
 
@@ -45,7 +55,6 @@ ms.compute_color_by_point_cloud_voronoi_projection(
 print("Color computed!")
 
 # Meshification in PyVista
-csurface_id = ms.current_mesh_id()
 csurface = ms.current_mesh()
 cvertices = csurface.vertex_matrix()  # (N, 3) float64
 cfaces = csurface.face_matrix()  # (F, 3) int32
@@ -80,7 +89,7 @@ print("Selected vertices to delete!")
 
 # Extract cells whose *all* vertices are red/orange
 red_vol = cmesh.threshold(
-    (0.5, 1.5), scalars="keep", all_scalars=False  # keep == 1
+    (0.5, 1.5), scalars="keep", all_scalars=False 
 )  # returns an UnstructuredGrid
 print("Deleted selected vertices!")
 
@@ -96,6 +105,8 @@ ms.add_mesh(ml_mesh, "red_mesh")
 print("New mesh uploaded to MeshLab!")
 
 # this filter is computationally expensive, maybe I can play around with this targetlen number
+mesh_clean(ms)
+ms.meshing_close_holes(maxholesize = 50)
 ms.meshing_isotropic_explicit_remeshing(
     iterations=10,
     adaptive=True,
@@ -137,7 +148,6 @@ solid = obj.modifiers.new(name="Solidify", type="SOLIDIFY")
 solid.thickness = 1.5  # metres; tweak to taste
 solid.offset = 1.0  # -1 = inward, +1 = outward, 0 = both sides
 solid.use_even_offset = True  # uniform thickness around sharp bends
-# include weld modifier characteristics here (smoothing of vertices closer to holes should follow)
 
 bpy.ops.object.modifier_apply(modifier=displace.name)
 bpy.ops.object.modifier_apply(modifier=solid.name)
@@ -146,6 +156,46 @@ print("Mesh thickened!")
 filepath = outputfile
 bpy.context.view_layer.objects.active = obj
 obj.select_set(True)
+
+# Get mesh data
+me = obj.data
+bm = bmesh.new()
+bm.from_mesh(me)
+
+# Step 1: Detect boundary vertices (before solidify these were holes)
+boundary_verts = set()
+for e in bm.edges:
+    if len(e.link_faces) == 1:  # boundary edge
+        boundary_verts.add(e.verts[0])
+        boundary_verts.add(e.verts[1])
+
+# Step 2: Grow selection by N-rings (neighbors around hole)
+def grow_region(verts, n=2):
+    sel = set(verts)
+    for _ in range(n):
+        new_sel = set(sel)
+        for v in sel:
+            for e in v.link_edges:
+                new_sel.add(e.other_vert(v))
+        sel = new_sel
+    return sel
+
+smooth_region = grow_region(boundary_verts, n=3)
+
+# Step 3: Apply localized smoothing
+bmesh.ops.smooth_vert(
+    bm,
+    verts=list(smooth_region),
+    factor=0.8,   # smoothing strength (0–1)
+    use_axis_x=True,
+    use_axis_y=True,
+    use_axis_z=True
+)
+
+# Step 4: Update Blender mesh
+bm.to_mesh(me)
+bm.free()
+print(f"Localized smoothing applied to {len(smooth_region)} vertices near holes!")
 
 ext = Path(outputfile).suffix.lower()
 if ext == ".ply":

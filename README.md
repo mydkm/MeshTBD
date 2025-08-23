@@ -25,4 +25,25 @@ Note that this project only works on Python 3.11.X.
 Note the naming conventions for the python scripts in this repository are as follows:
 'tags_currentProgress.py' (Python scripts available in 'MeshTBD/Meshes' have the 'tags+includedPackages_currentProgress.py' naming conventions)
 
+## How it Works
+
+Here's a general overview of how the script works:
+
+1. Input 3D model is scaled to size of body part in a MeshSet and cleaned
+2. VCG Surface Reconstruction is applied
+3. Loop Surface Subdivision is applied
+4. Poisson-Disk Sampling with an user-defined number of points is completed (WIP)
+5. 3D model is colored according to the "Voronoi Vertex Coloring" filter
+6. 3D model is converted to a PyVista mesh w/ RGB values
+7. Appropiate vertices are selected by color and deleted
+8. PyVista mesh is returned to the MeshSet
+9. Any small holes remaining from the Pyvista mesh are removed, and the mesh is cleaned
+10. Isotropic Explicit Remeshing is applied 
+11. Blender "Displace" modifier is applied 
+12. Blender "Thicken" modifier is applied
+13. Edge faces within holes of mesh are smoothened using a Laplacian Smooth
+14. Output 3D model is saved as either a .stl or .ply file
+
+A more detailed description of our workflow and the thought process for our workflow is a WIP!
+
 TBD!
