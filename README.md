@@ -65,7 +65,7 @@ The project has been migrated to work primarily with the [uv package manager](ht
    ```bash
    git clone https://github.com/mydkm/MeshTBD.git
    cd MeshTBD
-```
+   ```
 
 2. Install dependencies:
 
