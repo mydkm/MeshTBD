@@ -1,8 +1,3 @@
-Perfect — thanks for clarifying. I’ll keep the README exactly as before, add a **Table of Contents** near the top, and simplify the **Usage Examples** so they only show the input (`-i`) and output (`-o`) arguments (since that’s what your code supports right now).
-
-Here’s the updated `README.md` in full, copy-paste ready:
-
-````markdown
 <div align="center">
 
 # MeshTBD
