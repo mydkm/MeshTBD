@@ -10,6 +10,7 @@ dependencies = [
     "polyscope>=2.4.0",
     "pymeshlab>=2023.12.post3",
     "pyvista>=0.46.1",
+    "scikit-learn>=1.7.1",
     "scipy>=1.16.1",
 ]
 
