@@ -1,0 +1,72 @@
+import numpy as np
+import open3d as o3d # type: ignore
+from skimage import measure #type: ignore
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+
+mesh = o3d.io.read_triangle_mesh("Base Cast Solid.ply")
+if mesh.is_empty():
+    raise RuntimeError("Failed to load mesh!")
+print("Loaded mesh!")
+
+mesh.remove_degenerate_triangles()
+mesh.remove_duplicated_triangles()
+mesh.remove_duplicated_vertices()
+mesh.remove_unreferenced_vertices()
+mesh.remove_non_manifold_edges()
+mesh.compute_vertex_normals()
+print('Mesh cleaned up!')
+print(
+    f'Simplified mesh has {len(mesh.vertices)} vertices and {len(mesh.triangles)} triangles'
+)
+
+# ────────────────────────────── marching‑cubes reconstruction ─────────────────────────────
+# 1 . Build a signed‑distance field (SDF) on a regular grid
+import open3d.core as o3c                       # core / tensor part of Open3D
+import open3d.t as o3dt                         # tensor API (needs Open3D ≥ 0.15)
+
+# --- put the legacy mesh into a ray‑casting scene ---
+t_mesh   = o3dt.geometry.TriangleMesh.from_legacy(mesh)
+scene    = o3dt.geometry.RaycastingScene()
+_        = scene.add_triangles(t_mesh)          # returns geometry ID (unused here)
+
+# --- choose grid resolution (feel free to tune `nx` for quality vs. speed) ---
+bbox     = mesh.get_axis_aligned_bounding_box()
+min_b    = bbox.min_bound
+max_b    = bbox.max_bound
+nx       = 160                                  # ~160³ voxels ≈ 4 M cells
+xs       = np.linspace(min_b[0], max_b[0], nx, dtype=np.float32)
+ys       = np.linspace(min_b[1], max_b[1], nx, dtype=np.float32)
+zs       = np.linspace(min_b[2], max_b[2], nx, dtype=np.float32)
+dx, dy, dz = (xs[1] - xs[0]), (ys[1] - ys[0]), (zs[1] - zs[0])
+
+# --- evaluate signed distance at every grid point (vectorised) ---
+X, Y, Z = np.meshgrid(xs, ys, zs, indexing='ij')          # shape ➜ (nx, nx, nx)
+grid_pts = np.stack((X, Y, Z), axis=-1).reshape(-1, 3)    # (N, 3) flat list
+sdf      = scene.compute_signed_distance(
+              o3c.Tensor(grid_pts, dtype=o3c.Dtype.Float32)
+          ).numpy().reshape(nx, nx, nx)
+
+# 2 . Run marching cubes at the 0‑isosurface (the actual surface)
+from skimage import measure
+verts, faces, normals, _ = measure.marching_cubes(sdf, level=0.0)
+
+# Convert vertex coordinates from voxel indices back to world units
+verts_world           = np.empty_like(verts)
+verts_world[:, 0]     = min_b[0] + verts[:, 0] * dx
+verts_world[:, 1]     = min_b[1] + verts[:, 1] * dy
+verts_world[:, 2]     = min_b[2] + verts[:, 2] * dz
+
+# 3 . Replace `mesh` with the newly reconstructed surface
+mesh = o3d.geometry.TriangleMesh()
+mesh.vertices  = o3d.utility.Vector3dVector(verts_world)
+mesh.triangles = o3d.utility.Vector3iVector(faces.astype(np.int32))
+mesh.compute_vertex_normals()
+
+print(f"Marching‑cubes mesh has {len(mesh.vertices)} vertices and {len(mesh.triangles)} triangles")
+# ───────────────────────────────────────────────────────────────────────────────────────────
+
+if mesh.is_empty():
+    print("No triangles produced – increase sample density or radii.")
+else:
+    o3d.visualization.draw_geometries([mesh])
