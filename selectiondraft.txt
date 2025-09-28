@@ -1,0 +1,33 @@
+# Draft of selection feature as a part of the GUI
+import tkinter as tk
+import math
+
+points = []  # to store start and end points
+
+def on_click(event):
+    global points
+    # Record point
+    points.append((event.x, event.y))
+    
+    if len(points) == 1:
+        label.config(text=f"Start point: {points[0]}")
+    elif len(points) == 2:
+        # Calculate distance
+        (x1, y1), (x2, y2) = points
+        distance = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+        label.config(text=f"Start: {points[0]}, End: {points[1]}, Distance = {distance:.2f}")
+        # Reset for next measurement
+        points = []
+
+root = tk.Tk()
+root.title("Distance Finder")
+
+canvas = tk.Canvas(root, width=400, height=300, bg="white")
+canvas.pack()
+
+label = tk.Label(root, text="Click two points")
+label.pack()
+
+canvas.bind("<Button-1>", on_click)
+
+root.mainloop()
