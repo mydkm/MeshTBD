@@ -31,3 +31,6 @@ label.pack()
 canvas.bind("<Button-1>", on_click)
 
 root.mainloop()
+
+
+This would be using tkinter for the GUI
