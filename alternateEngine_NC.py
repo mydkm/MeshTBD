@@ -64,7 +64,6 @@ def on_gui(ev):
     dvz.gui_pos(vec2(25, 25), vec2(0, 0))
     dvz.gui_size(vec2(w + 20, 200))
 
-    # Start a GUI dialog, specifying a dialog title.
     dvz.gui_begin('My GUI', 0)
 
     # Import button: open file dialog and load selected OBJ
