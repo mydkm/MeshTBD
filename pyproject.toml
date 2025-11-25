@@ -6,12 +6,16 @@ readme = "README.md"
 requires-python = "==3.11.13"
 dependencies = [
     "bpy>=4.5.1",
+    "customtkinter>=5.2.2",
+    "datoviz>=0.3.2",
     "numpy>=1.26.4",
+    "open3d>=0.19.0",
     "polyscope>=2.4.0",
     "pymeshlab>=2023.12.post3",
     "pyvista>=0.46.1",
     "scikit-learn>=1.7.1",
     "scipy>=1.16.1",
+    "trimesh>=4.9.0",
 ]
 
 [tool.uv]
