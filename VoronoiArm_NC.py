@@ -72,7 +72,8 @@ cmesh = pv.PolyData(cvertices, cfaces_pv)
 cmesh.point_data["RGBA"] = colors
 n_pts = cmesh.n_points
 print("PyVista conversion completed!")
-# cmesh.plot(rgb=True)
+cmesh.plot(rgb=True)
+
 
 if "RGBA" in cmesh.point_data:
     rgba = np.asarray(cmesh.point_data["RGBA"])
