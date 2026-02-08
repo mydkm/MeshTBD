@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from dataclasses import dataclass
 from typing import Optional
 
@@ -39,7 +40,7 @@ def load_surface_mesh(path: str) -> pv.PolyData:
     return mesh
 
 
-def _safe_remove_observer(iren, obs_id: int) -> None:
+def _safe_remove_observer(iren, obs_id: Optional[int]) -> None:
     """Remove a VTK observer in a version-tolerant way."""
     if obs_id is None:
         return
@@ -80,7 +81,13 @@ def pick_two_points_and_geodesic(
     left_click: bool = True,
     auto_close: bool = False,
     picker: str = "cell",
-) -> PickResult:
+) -> tuple[PickResult, pv.PolyData]:
+    """
+    Open an interactive viewer, pick two points, and compute geodesic distance.
+
+    Returns:
+        (PickResult, surf_mesh)
+    """
     surf = load_surface_mesh(stl_path)
 
     pl = pv.Plotter()
@@ -241,25 +248,46 @@ def pick_two_points_and_geodesic(
     if result["value"] is None:
         raise RuntimeError("Window closed before two points were picked.")
 
-    return result["value"]
+    # Return both the pick result and the surface mesh we used
+    return result["value"], surf
 
 
 def main() -> None:
     ap = argparse.ArgumentParser(
-        description="Pick 2 points on an STL surface and compute geodesic distance (with hover preview)."
+        description=(
+            "Pick 2 points on an STL surface and compute geodesic distance "
+            "(with hover preview), then write a uniformly scaled STL based "
+            "on a real-world measurement."
+        )
     )
     ap.add_argument("stl", help="Path to input .stl file")
-    ap.add_argument("--right-click", action="store_true", help="Use right-click instead of left-click")
-    ap.add_argument("--auto-close", action="store_true", help="Automatically close the window after the 2nd pick")
+    ap.add_argument(
+        "--right-click",
+        action="store_true",
+        help="Use right-click instead of left-click",
+    )
+    ap.add_argument(
+        "--auto-close",
+        action="store_true",
+        help="Automatically close the window after the 2nd pick",
+    )
     ap.add_argument(
         "--picker",
         default="cell",
         choices=["hardware", "cell", "point", "volume"],
         help="VTK picker type used for clicks (default: cell).",
     )
+    ap.add_argument(
+        "--scaled-out",
+        help=(
+            "Optional path for saving a uniformly scaled STL. "
+            "If omitted, will use <input_stem>_scaled.stl"
+        ),
+    )
     args = ap.parse_args()
 
-    res = pick_two_points_and_geodesic(
+    # 1) Interactive picking + geodesic measurement
+    res, surf = pick_two_points_and_geodesic(
         args.stl,
         left_click=not args.right_click,
         auto_close=args.auto_close,
@@ -271,6 +299,58 @@ def main() -> None:
     print(f"P1 (vertex {res.v1}): {res.p1.tolist()}")
     print(f"Geodesic distance:   {res.geodesic_distance:.10g}")
     print("(Units match the STL coordinate units.)\n")
+
+    # 2) Scaling feature: map mesh geodesic to real-world distance
+    geo = float(res.geodesic_distance)
+    if geo <= 0:
+        raise SystemExit("Geodesic distance is non-positive; cannot calibrate scale.")
+
+    user_input = input(
+        "Enter real-world distance between these two landmarks "
+        "(e.g. middle finger tip to cubital fossa, in mm): "
+    ).strip()
+
+    try:
+        real_mm = float(user_input)
+    except ValueError:
+        raise SystemExit(f"Invalid numeric value: {user_input!r}")
+    if real_mm <= 0:
+        raise SystemExit("Real-world distance must be positive.")
+
+    scale = real_mm / geo
+    print(f"\nScale factor = real / mesh = {real_mm:.3f} / {geo:.3f} = {scale:.6f}")
+
+    # 3) Decide output path for scaled mesh
+    if args.scaled_out:
+        scaled_path = args.scaled_out
+    else:
+        base, ext = os.path.splitext(args.stl)
+        if not ext:
+            ext = ".stl"
+        scaled_path = f"{base}_scaled{ext}"
+
+    # 4) Apply scaling to the already-loaded mesh
+    print("\nReusing in-memory mesh to apply scaling (no second load)...")
+    mesh = surf.copy()
+    mesh.points *= scale
+
+    # Optional sanity-check geodesic on scaled mesh
+    try:
+        path_scaled = mesh.geodesic(res.v0, res.v1, keep_order=True)
+        print(
+            f"Geodesic after scaling: {path_scaled.length:.3f} "
+            f"(expected ≈ {real_mm:.3f} mm)"
+        )
+    except Exception:
+        print("Warning: could not recompute geodesic on scaled mesh for sanity check.")
+
+    # 5) Save scaled STL
+    mesh.save(scaled_path)
+    print(f"\nScaled STL written to: {scaled_path}")
+    print(
+        "You can now feed this scaled STL into VoronoiArm_NC.py "
+        "and the rest of your pipeline."
+    )
 
 
 if __name__ == "__main__":
