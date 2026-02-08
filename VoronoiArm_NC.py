@@ -38,6 +38,9 @@ ms.load_new_mesh(inputfile)
 inputfile_id = ms.current_mesh_id()
 
 mesh_clean(ms)
+ms.compute_selection_by_small_disconnected_components_per_face()
+ms.meshing_remove_selected_faces()
+ms.meshing_remove_selected_vertices()
 bbox = ms.current_mesh().bounding_box()
 bboxlength = bbox.dim_y()
 scalefactor = armlength / bboxlength
