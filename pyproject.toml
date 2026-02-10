@@ -1,19 +1,15 @@
 [project]
 name = "MeshTBD"
 version = "0.1.0"
-description = "Modern 3D processing software sucks, especially when it comes to its scripting capabiltiies. We aren't tackling a full app as of yet, we're starting with turning a 3D model of a body part into a cast with a Voronoi pattern."
+description = "Modern 3D processing software sucks, especially when it comes to its scripting capabiltiies. We aren't tackling a full app as of yet, we're starting with turning a 3D model of a body part into a cast with a Voronoi pattern with some help with "M.I.L.F."."
 readme = "README.md"
 requires-python = "==3.11.13"
 dependencies = [
     "bpy>=4.5.1",
-    "customtkinter>=5.2.2",
-    "datoviz>=0.3.2",
     "numpy>=1.26.4",
     "open3d>=0.19.0",
-    "polyscope>=2.4.0",
     "pymeshlab>=2023.12.post3",
     "pyvista>=0.46.1",
-    "scikit-learn>=1.7.1",
     "scipy>=1.16.1",
     "trimesh>=4.9.0",
 ]
@@ -21,4 +17,11 @@ dependencies = [
 [tool.uv]
 required-environments = [
 	"sys_platform == 'linux' and platform_machine == 'x86_64' and python_version == '3.11'"
+]
+
+[dependency-groups]
+dev = [
+    "inspect-it>=0.3.2",
+    "ipykernel>=7.2.0",
+    "ty>=0.0.15",
 ]
