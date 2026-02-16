@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.pyc
+
+# Generated meshes
+*_scaled.stl
+output_cast.stl
+
+# Large mesh outputs
+Meshes/*_scaled*.stl
+Meshes/output_cast.stl
