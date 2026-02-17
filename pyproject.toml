@@ -1,7 +1,7 @@
 [project]
 name = "MeshTBD"
 version = "0.1.0"
-description = "Modern 3D processing software sucks, especially when it comes to its scripting capabiltiies. We aren't tackling a full app as of yet, we're starting with turning a 3D model of a body part into a cast with a Voronoi pattern with some help with "M.I.L.F."."
+description = "Modern 3D processing software sucks, especially when it comes to its scripting capabiltiies. We aren't tackling a full app as of yet, we're starting with turning a 3D model of a body part into a cast with a Voronoi pattern with some help with M.I.L.F."
 readme = "README.md"
 requires-python = "==3.11.13"
 dependencies = [
