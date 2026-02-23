@@ -1,8 +1,7 @@
 version = 1
 revision = 3
 requires-python = "==3.11.13"
-resolution-markers = [
-    "platform_machine != 'x86_64' or sys_platform != 'linux'",
+required-markers = [
     "platform_machine == 'x86_64' and sys_platform == 'linux'",
 ]
 
@@ -597,8 +596,8 @@ dependencies = [
     { name = "bpy" },
     { name = "numpy" },
     { name = "open3d" },
-    { name = "pymeshlab", version = "2023.12.post3", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-    { name = "pymeshlab", version = "2025.7", source = { registry = "https://pypi.org/simple" }, marker = "platform_machine != 'x86_64' or sys_platform != 'linux'" },
+    { name = "polyscope" },
+    { name = "pymeshlab" },
     { name = "pyvista" },
     { name = "scipy" },
     { name = "trimesh" },
@@ -616,6 +615,7 @@ requires-dist = [
     { name = "bpy", specifier = ">=4.5.1" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "open3d", specifier = ">=0.19.0" },
+    { name = "polyscope", specifier = ">=2.6.0" },
     { name = "pymeshlab", specifier = ">=2023.12.post3" },
     { name = "pyvista", specifier = ">=0.46.1" },
     { name = "scipy", specifier = ">=1.16.1" },
@@ -804,6 +804,26 @@ wheels = [
 ]
 
 [[package]]
+name = "polyscope"
+version = "2.6.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/e8/35/03077f1bfc8b6ee2393294e94cfaf9f6c631cf69d5e2c141770321d06962/polyscope-2.6.0.tar.gz", hash = "sha256:3d5ed5bf71e12c2967f9444988f4ebe20bf808d22d8b8f34bdb554d2e8623d6a", size = 16936203, upload-time = "2026-02-17T08:25:36.709Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/79/e2/7d17e3eec645b553b14b835535b3814ab7cc8a639ad7f49d40c543d44842/polyscope-2.6.0-cp311-cp311-macosx_10_13_x86_64.whl", hash = "sha256:a5c3eb90971a8232619ba3eff1d7ca1a4acfd6fa87d1a2831be42a38d07df31d", size = 7678871, upload-time = "2026-02-17T08:23:33.684Z" },
+    { url = "https://files.pythonhosted.org/packages/a9/ff/4e1727e31f89af523f97ad5f372acff01c3d4e2cf095f15b778174460503/polyscope-2.6.0-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:18cea63154cd558e74218961ef18e11f5900601a6311b48956394e135d19581b", size = 7523458, upload-time = "2026-02-17T08:23:35.894Z" },
+    { url = "https://files.pythonhosted.org/packages/f2/14/8f45c5463e431b033e09f0d106dba8d99dc74d819ab2eaffe296a65e820e/polyscope-2.6.0-cp311-cp311-manylinux_2_27_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:0ba66f7b2aad04c752c7aef87771f659e5172b3ec21500e0c2eaca0647881363", size = 8287335, upload-time = "2026-02-17T08:23:38.255Z" },
+    { url = "https://files.pythonhosted.org/packages/90/69/abe50b5c420075397c590f76594e12e8c7739e093e6c136b6e755c78a95e/polyscope-2.6.0-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:897849912e3e6bde2df0a34c3f0ec9f76a914cee443d007bc58c02f5b364adba", size = 8818722, upload-time = "2026-02-17T08:23:40.716Z" },
+    { url = "https://files.pythonhosted.org/packages/57/b3/7a875a71d6a8007a42c01ff38017f3c7ac6cfb2e57f2eb7007450fec224e/polyscope-2.6.0-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:d8f3bcf5e97016d419baeb34cecc75e19101f392c301b1dce905984b31bdc4a5", size = 9770695, upload-time = "2026-02-17T08:23:43.426Z" },
+    { url = "https://files.pythonhosted.org/packages/00/3b/46955706461341989d249b9e95f3a73cbc5fa96148a4d2759d37f78d3a78/polyscope-2.6.0-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:fc5ef018457f4521246d779c58f9e2c699d622d9e6dea71572aca347aefff456", size = 10207034, upload-time = "2026-02-17T08:23:46.124Z" },
+    { url = "https://files.pythonhosted.org/packages/db/3a/a676e7081268452dca93aa9c6d21ed5797d424c5934c5b881daa2b6c854c/polyscope-2.6.0-cp311-cp311-win32.whl", hash = "sha256:289e1c7aa96a9df48853c14fbb0c528e6663459cd380ab2528e75f121cb24648", size = 8377934, upload-time = "2026-02-17T08:23:49.063Z" },
+    { url = "https://files.pythonhosted.org/packages/9f/d5/ec84264c2aea86815d6d139599b3b74f5dd371ee5fb0075b375dd21a5c89/polyscope-2.6.0-cp311-cp311-win_amd64.whl", hash = "sha256:f59268c0e00cad613ffb91ec87956094876ee2a9b8e5b6d90002e3ab9f9bb383", size = 9864691, upload-time = "2026-02-17T08:23:51.311Z" },
+]
+
+[[package]]
 name = "pooch"
 version = "1.8.2"
 source = { registry = "https://pypi.org/simple" }
@@ -883,27 +903,10 @@ wheels = [
 
 [[package]]
 name = "pymeshlab"
-version = "2023.12.post3"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "platform_machine == 'x86_64' and sys_platform == 'linux'",
-]
-dependencies = [
-    { name = "numpy", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
-]
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/62/bd156d2a03a2a79ee7f2e60a06929d6ea9f1e5bd1a40726da69b97e2ab5c/pymeshlab-2023.12.post3-cp311-cp311-manylinux_2_31_x86_64.whl", hash = "sha256:f77a41a67618ea4d976b99aeaf615dfca8562154c3275e4554c4428292408e94", size = 98457761, upload-time = "2025-03-05T13:11:04.962Z" },
-]
-
-[[package]]
-name = "pymeshlab"
 version = "2025.7"
 source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "platform_machine != 'x86_64' or sys_platform != 'linux'",
-]
 dependencies = [
-    { name = "numpy", marker = "platform_machine != 'x86_64' or sys_platform != 'linux'" },
+    { name = "numpy" },
 ]
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b0/a3/3da854a33c2845e56c21fb98d8c4d7586f037fe5bad135e9dcfa82dc2fcb/pymeshlab-2025.7-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:9181abea37b2877dd2f9a6f538b1f32dbad6628fc4b6953c1ff0e9dca8173823", size = 73839197, upload-time = "2025-07-22T12:33:14.663Z" },

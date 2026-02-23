@@ -387,7 +387,7 @@ def main() -> int:
     print("Point cloud generated!")
     pointcloud_id = ms.current_mesh_id()
     
-    ms.set_current_mesh(surface_id)
+    csurface = ms.set_current_mesh(surface_id)
     ms.compute_color_by_point_cloud_voronoi_projection(
         coloredmesh=surface_id,
         vertexmesh=pointcloud_id,
@@ -396,13 +396,12 @@ def main() -> int:
     print("Color computed!")
     
     # Meshification in PyVista
-    csurface = ms.current_mesh()
     cvertices = csurface.vertex_matrix()  # (N, 3) float64
     cfaces = csurface.face_matrix()  # (F, 3) int32
     colors = csurface.vertex_color_matrix()  # (N, 4)
     cfaces_pv = np.hstack(
         [np.full((cfaces.shape[0], 1), 3, dtype=np.int64), cfaces]
-    ).ravel()
+    ).ravel() # for polydata conversion
     cmesh = pv.PolyData(cvertices, cfaces_pv)
     cmesh.point_data["RGBA"] = colors
     n_pts = cmesh.n_points
@@ -426,7 +425,7 @@ def main() -> int:
     hue = hsv[:, 0]  # 0 → red, 0.14 → 50°
     saturation = hsv[:, 1]
     
-    red_like = (hue <= 50 / 360.0) & (saturation >= 0.25)
+    red_like = (hue <= 50.0 / 360.0) & (saturation >= 0.25)
     cmesh["keep"] = red_like.astype(np.uint8)
     print("Selected vertices to delete!")
     
@@ -459,7 +458,7 @@ def main() -> int:
         targetlen=ml.PercentageValue(0.250),
     )
     print("Surface remeshed!")
-    smooth_mesh_id = ms.current_mesh_id()
+
     smooth_mesh = ms.current_mesh()
     red_verts = smooth_mesh.vertex_matrix()
     red_faces = smooth_mesh.face_matrix()
