@@ -374,10 +374,11 @@ def main() -> int:
         scaled_polydata_out = in_path.with_name(f"{in_path.stem}_scaled_polydata.ply")
     
     scaled_polydata_out = scaled_polydata_out.resolve()
-    ms.save_current_mesh(str(scaled_polydata_out))
+    # ms.save_current_mesh(str(scaled_polydata_out))
     print(f"Scaled PolyData exported to: {scaled_polydata_out}")
     
     ms.generate_surface_reconstruction_vcg(voxsize=ml.PercentageValue(0.50))
+    ms.meshing_decimation_quadric_edge_collapse(targetfacenum = 50000)
     print("Reconstruction complete!")
     surface_id = ms.current_mesh_id()
     
