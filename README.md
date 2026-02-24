@@ -77,6 +77,8 @@ cd MeshTBD
 uv sync
 ```
 
+If you'd like to download uv, you could do so [here](https://github.com/astral-sh/uv).
+
 3. Run the main script:
 ```bash
 uv run python VoronoiFinal.py -i input_forearm.ply -o output_cast.stl
