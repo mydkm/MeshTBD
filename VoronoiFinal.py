@@ -361,8 +361,10 @@ def main() -> int:
     print("\nLoading mesh in PyMeshLab and applying geodesic-derived scale...")
     ms = ml.MeshSet()
     ms.load_new_mesh(inputfile)
-    mesh_clean(ms)
     ms.compute_selection_by_small_disconnected_components_per_face()
+    mesh_clean(ms)
+    ms.meshing_decimation_quadric_edge_collapse()
+    mesh_clean(ms)
     ms.meshing_remove_selected_faces()
     ms.meshing_remove_selected_vertices()
     ms.compute_matrix_from_scaling_or_normalization(axisx=scale, axisy=scale, axisz=scale)
@@ -378,17 +380,16 @@ def main() -> int:
     print(f"Scaled PolyData exported to: {scaled_polydata_out}")
     
     ms.generate_surface_reconstruction_vcg(voxsize=ml.PercentageValue(0.50))
-    ms.meshing_decimation_quadric_edge_collapse(targetfacenum = 50000)
     print("Reconstruction complete!")
     surface_id = ms.current_mesh_id()
     
     ms.meshing_surface_subdivision_loop(threshold=ml.PercentageValue(0.50))
     print("Subdivision complete!")
-    ms.generate_sampling_poisson_disk(samplenum=75, exactnumflag=True)
+    ms.generate_sampling_poisson_disk(samplenum=75, exactnumflag=True) # CURRENT ALGORITHM USED TO GENERATE POINT CLOUD
     print("Point cloud generated!")
     pointcloud_id = ms.current_mesh_id()
     
-    csurface = ms.set_current_mesh(surface_id)
+    ms.set_current_mesh(surface_id)
     ms.compute_color_by_point_cloud_voronoi_projection(
         coloredmesh=surface_id,
         vertexmesh=pointcloud_id,
@@ -397,12 +398,13 @@ def main() -> int:
     print("Color computed!")
     
     # Meshification in PyVista
+    csurface = ms.current_mesh()
     cvertices = csurface.vertex_matrix()  # (N, 3) float64
     cfaces = csurface.face_matrix()  # (F, 3) int32
     colors = csurface.vertex_color_matrix()  # (N, 4)
     cfaces_pv = np.hstack(
         [np.full((cfaces.shape[0], 1), 3, dtype=np.int64), cfaces]
-    ).ravel() # for polydata conversion
+    ).ravel()
     cmesh = pv.PolyData(cvertices, cfaces_pv)
     cmesh.point_data["RGBA"] = colors
     n_pts = cmesh.n_points
@@ -426,7 +428,7 @@ def main() -> int:
     hue = hsv[:, 0]  # 0 → red, 0.14 → 50°
     saturation = hsv[:, 1]
     
-    red_like = (hue <= 50.0 / 360.0) & (saturation >= 0.25)
+    red_like = (hue <= 50 / 360.0) & (saturation >= 0.25)
     cmesh["keep"] = red_like.astype(np.uint8)
     print("Selected vertices to delete!")
     
@@ -459,7 +461,7 @@ def main() -> int:
         targetlen=ml.PercentageValue(0.250),
     )
     print("Surface remeshed!")
-
+    smooth_mesh_id = ms.current_mesh_id()
     smooth_mesh = ms.current_mesh()
     red_verts = smooth_mesh.vertex_matrix()
     red_faces = smooth_mesh.face_matrix()
