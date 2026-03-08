@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import open3d as o3d
 
-from ..core import MeshData
+from meshtbd.core import MeshData
 
 
 def load_with_open3d(path: str) -> MeshData:

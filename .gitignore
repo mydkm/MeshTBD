@@ -9,3 +9,5 @@ output_cast.stl
 # Large mesh outputs
 Meshes/*_scaled*.stl
 Meshes/output_cast.stl
+
+datoviz/

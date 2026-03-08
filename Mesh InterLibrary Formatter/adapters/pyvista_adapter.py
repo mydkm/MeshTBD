@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pyvista as pv
 
-from ..core import MeshData
+from meshtbd.core import MeshData
 
 
 def load_with_pyvista(path: str) -> MeshData:
