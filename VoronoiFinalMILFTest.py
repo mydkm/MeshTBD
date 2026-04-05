@@ -2,7 +2,12 @@
 from __future__ import annotations
 
 import argparse
+import sys
 import os
+
+# Add project root to Python path
+sys.path.append(os.getcwd())
+
 from dataclasses import dataclass
 from typing import Optional
 
