@@ -29,6 +29,13 @@ from meshtbd.adapters.pymeshlab_adapter import (
     to_pymeshlab_meshset,
 )
 
+from meshtbd.adapters.bpy_adapter import (
+    from_bpy_object,
+    from_bpy_mesh_data,
+    to_bpy_object,
+    to_bpy_object_linked,
+)
+
 __all__ = [
     "MeshData",
 
@@ -56,4 +63,10 @@ __all__ = [
     "to_pymeshlab",
     "to_pymeshlab_mesh",
     "to_pymeshlab_meshset",
+
+    # bpy / Blender
+    "from_bpy_object",
+    "from_bpy_mesh_data",
+    "to_bpy_object",
+    "to_bpy_object_linked",
 ]
