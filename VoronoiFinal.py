@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
 from dataclasses import dataclass
 from typing import Optional
 
@@ -306,7 +307,15 @@ def main() -> int:
                 "Defaults to <input_stem>_scaled_polydata.ply"
             ),
         )
-    args = ap.parse_args()
+    
+    argv = sys.argv
+        
+    if "--" in argv:
+        argv = argv[argv.index("--") + 1:]
+    else:
+        argv = []  # no script args provided
+
+    args = ap.parse_args(argv)
     
     if args.stl and args.input and Path(args.stl) != Path(args.input):
         ap.error("Input path conflict: positional 'stl' and '--input' differ. Use only one.")
