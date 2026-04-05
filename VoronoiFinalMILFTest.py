@@ -319,7 +319,11 @@ def main() -> int:
             "Defaults to <input_stem>_scaled_polydata.ply"
         ),
     )
-    args = ap.parse_args()
+    
+    if "--" in sys.argv:
+        args = ap.parse_args(sys.argv[sys.argv.index("--") + 1 :])
+    else:
+        args = ap.parse_args()
 
     if args.stl and args.input and Path(args.stl) != Path(args.input):
         ap.error("Input path conflict: positional 'stl' and '--input' differ. Use only one.")
