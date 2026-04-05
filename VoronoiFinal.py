@@ -13,6 +13,7 @@ import numpy as np
 from matplotlib.colors import rgb_to_hsv  # noqa: F401
 from pathlib import Path  # noqa: F401
 import bmesh  # noqa: F401
+from plyfile import PlyData
 
 # Prefer PyVista's VTK shim; fall back to vtk if needed.
 try:
@@ -85,6 +86,21 @@ def _mark_dataset_modified(dataset) -> None:
         pts = dataset.GetPoints()
         if pts is not None and hasattr(pts, "Modified"):
             pts.Modified()
+
+
+def import_ply_object(filepath: str, object_name: str | None = None):
+    bpy.ops.object.select_all(action="DESELECT")
+    bpy.ops.wm.ply_import(filepath=filepath)
+    imported = list(bpy.context.selected_objects)
+    if not imported:
+        raise RuntimeError(f"Blender did not import any object from {filepath}")
+
+    obj = imported[0]
+    if object_name is not None:
+        obj.name = object_name
+        if obj.data is not None:
+            obj.data.name = object_name
+    return obj
 
 
 def pick_two_points_and_geodesic(
@@ -357,27 +373,32 @@ def main() -> int:
     scale = real_mm / geo
     print(f"\nScale factor = real / mesh = {real_mm:.3f} / {geo:.3f} = {scale:.6f}")
     
+    # ply = PlyData.read(inputfile)
+    # ql = np.asarray(ply["vertex"].data["quality_longitudinal"], dtype=float)
+    # qt = np.asarray(ply["vertex"].data["quality_transverse"], dtype=float)
+    
     # 4) Load into PyMeshLab and apply scale there to match VoronoiArm_NC behavior.
     print("\nLoading mesh in PyMeshLab and applying geodesic-derived scale...")
     ms = ml.MeshSet()
     ms.load_new_mesh(inputfile)
+
     ms.compute_selection_by_small_disconnected_components_per_face()
+    ms.meshing_remove_selected_faces()
+    ms.meshing_remove_selected_vertices()
     mesh_clean(ms)
     ms.meshing_decimation_quadric_edge_collapse()
     mesh_clean(ms)
-    ms.meshing_remove_selected_faces()
-    ms.meshing_remove_selected_vertices()
     ms.compute_matrix_from_scaling_or_normalization(axisx=scale, axisy=scale, axisz=scale)
     
-    if args.scaled_polydata_out:
-        scaled_polydata_out = Path(args.scaled_polydata_out)
-    else:
-        in_path = Path(inputfile)
-        scaled_polydata_out = in_path.with_name(f"{in_path.stem}_scaled_polydata.ply")
+    # if args.scaled_polydata_out:
+    #     scaled_polydata_out = Path(args.scaled_polydata_out)
+    # else:
+    #     in_path = Path(inputfile)
+    #     scaled_polydata_out = in_path.with_name(f"{in_path.stem}_scaled_polydata.ply")
     
-    scaled_polydata_out = scaled_polydata_out.resolve()
-    # ms.save_current_mesh(str(scaled_polydata_out))
-    print(f"Scaled PolyData exported to: {scaled_polydata_out}")
+    # scaled_polydata_out = scaled_polydata_out.resolve()
+    # # ms.save_current_mesh(str(scaled_polydata_out))
+    # print(f"Scaled PolyData exported to: {scaled_polydata_out}")
     
     ms.generate_surface_reconstruction_vcg(voxsize=ml.PercentageValue(0.50))
     print("Reconstruction complete!")
@@ -385,13 +406,20 @@ def main() -> int:
     
     ms.meshing_surface_subdivision_loop(threshold=ml.PercentageValue(0.50))
     print("Subdivision complete!")
-    ms.generate_sampling_poisson_disk(samplenum=75, exactnumflag=True) # CURRENT ALGORITHM USED TO GENERATE POINT CLOUD
+
+    # additional code to siphon out particular rectangle 
+    ms.save_current_mesh("tmp/tmp1.ply")
+    ms.generate_from_selected_faces()
+    cutsurface_id = ms.current_mesh_id()
+
+    # CURRENT ALGORITHM USED TO GENERATE POINT CLOUD
+    ms.generate_sampling_poisson_disk(samplenum=75, exactnumflag=True)
     print("Point cloud generated!")
     pointcloud_id = ms.current_mesh_id()
     
-    ms.set_current_mesh(surface_id)
+    ms.set_current_mesh(cutsurface_id)
     ms.compute_color_by_point_cloud_voronoi_projection(
-        coloredmesh=surface_id,
+        coloredmesh=cutsurface_id,
         vertexmesh=pointcloud_id,
         backward=True,
     )
@@ -438,20 +466,48 @@ def main() -> int:
     )  # returns an UnstructuredGrid
     print("Deleted selected vertices!")
     
-    red_mesh = red_vol.extract_surface()  # PolyData
-    red_mesh = red_mesh.triangulate()  # ensure triangle faces only
+    red_mesh = red_vol.extract_surface()
+    red_mesh = red_mesh.triangulate()
     if red_mesh.n_points == 0 or red_mesh.n_cells == 0:
         raise SystemExit("No Voronoi cells selected by keep-mask; cannot continue.")
-    red_faces = red_mesh.faces.reshape(-1, 4)[:, 1:].astype(
-        np.int32
-    )  # drop the leading 3’s
-    red_verts = red_mesh.points.astype(np.float64)
-    mesh_kwargs = dict(vertex_matrix=red_verts, face_matrix=red_faces)
-    ml_mesh = ml.Mesh(**mesh_kwargs)
-    ms.add_mesh(ml_mesh, "red_mesh")
-    print("New mesh uploaded to MeshLab!")
+
+    tmp_dir = Path("tmp")
+    tmp_dir.mkdir(parents=True, exist_ok=True)
+    pyvista_cut_path = (tmp_dir / "pyvista_cut_surface.ply").resolve()
+    cutter_path = (tmp_dir / "tmp1.ply").resolve()
+
+    red_mesh.save(str(pyvista_cut_path))
+    print(f"Saved PyVista cut surface to: {pyvista_cut_path}")
+
+    obj = import_ply_object(str(pyvista_cut_path), object_name="pyvistaMesh")
+    cutter_obj = import_ply_object(str(cutter_path), object_name="booleanCutter")
+
+    me = obj.data
+    bpy.context.view_layer.objects.active = obj
+    obj.select_set(True)
     
+    boolean = obj.modifiers.new(name="Boolean", type="BOOLEAN")
+    boolean.object = cutter_obj
+    boolean.operation = "DIFFERENCE"
+    boolean.solver = "EXACT"
+    boolean.use_self = False
+    bpy.ops.object.modifier_apply(modifier=boolean.name)
+    cutter_obj.hide_set(True)
+    cutter_obj.hide_render = True
+    print(f"Applied boolean difference using cutter mesh: {cutter_path}")
+
+    bpy.ops.wm.ply_export(
+            filepath=outputfile,
+            export_selected_objects=False,  # Export whole mesh
+            export_normals=True,
+            export_uv=True,
+            global_scale=1.0,
+            forward_axis="Y",
+            up_axis="Z",
+        )
+
     # this filter is computationally expensive, maybe I can play around with this targetlen number
+    ms.load_new_mesh('tmp/tmp2.ply')
     mesh_clean(ms)
     ms.meshing_close_holes(maxholesize = 50)
     ms.meshing_isotropic_explicit_remeshing(
@@ -460,7 +516,9 @@ def main() -> int:
         checksurfdist=True,
         targetlen=ml.PercentageValue(0.250),
     )
+    ms.apply_coord_laplacian_smoothing(stepsmoothnum = 50)
     print("Surface remeshed!")
+    
     smooth_mesh_id = ms.current_mesh_id()
     smooth_mesh = ms.current_mesh()
     red_verts = smooth_mesh.vertex_matrix()
@@ -537,31 +595,19 @@ def main() -> int:
     
     bm.to_mesh(me)
     bm.free()
-    print(f"Localized smoothing applied to {len(smooth_region)} vertices near holes!")
-    
-    ext = Path(outputfile).suffix.lower()
-    if ext == ".ply":
-        bpy.ops.wm.ply_export(
-            filepath=outputfile,
-            export_selected_objects=False,  # Export whole mesh
-            export_normals=True,
-            export_uv=True,
-            global_scale=1.0,
-            forward_axis="Y",
-            up_axis="Z",
-        )
-    elif ext == ".stl":
-        bpy.ops.wm.stl_export(
-            filepath=outputfile,
-            export_selected_objects=False,  # Export whole mesh
-            global_scale=1.0,
-            forward_axis="Y",
-            up_axis="Z",
-        )
-    else:
-        print("Export failed!")
+    print(f"Localized smoothing applied to {len(smooth_region)} vertices near holes!") 
 
-    return 0
+    bpy.ops.wm.ply_export(
+        filepath="tmp/tmp3.ply",
+        export_selected_objects=False,  # Export whole mesh
+        export_normals=True,
+        export_uv=True,
+        global_scale=1.0,
+        forward_axis="Y",
+        up_axis="Z",
+    )
+
+    # ms.load_new_mesh(outputfile)
 
 if __name__ == "__main__":
     raise SystemExit(main())
