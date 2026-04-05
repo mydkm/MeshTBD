@@ -1,20 +1,39 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
-name = "MeshTBD"
+name = "meshtbd"
 version = "0.1.0"
-description = "Modern 3D processing software sucks, especially when it comes to its scripting capabiltiies. We aren't tackling a full app as of yet, we're starting with turning a 3D model of a body part into a cast with a Voronoi pattern."
+description = "Script-first tooling for calibrating scanned limb meshes and generating cast-like Voronoi shells."
 readme = "README.md"
 requires-python = "==3.11.13"
 dependencies = [
     "bpy>=4.5.1",
+    "matplotlib>=3.9.0",
     "numpy>=1.26.4",
-    "polyscope>=2.4.0",
+    "open3d>=0.19.0",
+    "polyscope>=2.6.0",
     "pymeshlab>=2023.12.post3",
     "pyvista>=0.46.1",
-    "scikit-learn>=1.7.1",
     "scipy>=1.16.1",
+    "trimesh>=4.9.0",
 ]
+
+[project.scripts]
+meshtbd-voronoi = "meshtbd.cli.voronoi_cast:main"
 
 [tool.uv]
 required-environments = [
 	"sys_platform == 'linux' and platform_machine == 'x86_64' and python_version == '3.11'"
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/meshtbd", "src/mesh_interlibrary_formatter"]
+
+[dependency-groups]
+dev = [
+    "inspect-it>=0.3.2",
+    "ipykernel>=7.2.0",
+    "ty>=0.0.15",
 ]

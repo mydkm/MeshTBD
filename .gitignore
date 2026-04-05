@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.codex
+
+# Local data and generated outputs
+local_data/
+local_outputs/
+
+# Generated documents
+abstract.pdf
