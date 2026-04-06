@@ -121,6 +121,9 @@ def compute_geometry_context(mesh: pv.PolyData, ref_mode: str, ep: float | None)
 def compute_plane_normal(mode: str, arrow_dir: np.ndarray, axes: np.ndarray) -> np.ndarray:
     u0, u1, u2 = axes[:, 0], axes[:, 1], axes[:, 2]
 
+    if mode == "normal":
+        return normalize(arrow_dir)
+
     if mode == "longitudinal":
         u = u0
         u_perp = u - np.dot(u, arrow_dir) * arrow_dir
