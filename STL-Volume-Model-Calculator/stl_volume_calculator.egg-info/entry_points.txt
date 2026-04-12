@@ -1,2 +1,0 @@
-[console_scripts]
-volume-calculator = volume_calculator:main
