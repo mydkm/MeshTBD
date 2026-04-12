@@ -574,3 +574,38 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
+    # # bm.to_mesh(me)
+    # bm.free()
+    # print(f"Localized smoothing applied to {len(smooth_region)} vertices near holes!")
+
+    # # Final global Laplacian smoothing
+    # apply_laplacian_smoothing(
+    #     obj,
+    #     iterations=8,
+    #     lambda_factor=0.12,
+    #     lambda_border=0.05,
+    #     preserve_volume=True,
+    #     interior_only=True,
+    # )
+
+    # ext = Path(outputfile).suffix.lower()
+    # if ext == ".ply":
+    #     bpy.ops.wm.ply_export(
+    #         filepath=outputfile,
+    #         export_selected_objects=False,
+    #         export_normals=True,
+    #         export_uv=True,
+    #         global_scale=1.0,
+    #         forward_axis="Y",
+    #         up_axis="Z",
+    #     )
+    # elif ext == ".stl":
+    #     bpy.ops.wm.stl_export(
+    #         filepath=outputfile,
+    #         export_selected_objects=False,
+    #         global_scale=1.0,
+    #         forward_axis="Y",
+    #         up_axis="Z",
+    #     )
