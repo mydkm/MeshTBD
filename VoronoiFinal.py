@@ -5,7 +5,7 @@ import argparse
 import os
 import sys
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 import bpy  # noqa: F401
 import pymeshlab as ml  # noqa: F401
@@ -50,17 +50,29 @@ class PlySummary:
 
 
 QUALITY_NORMAL_LOWER_BOUND = -0.8
-QUALITY_NORMAL_UPPER_BOUND = 0.4
-QUALITY_TRANSVERSE_LOWER_BOUND = -0.8
-QUALITY_TRANSVERSE_UPPER_BOUND = 0.6
+QUALITY_NORMAL_UPPER_BOUND = 0.8
+QUALITY_TRANSVERSE_LOWER_BOUND = -0.75
+QUALITY_TRANSVERSE_UPPER_BOUND = 0.75
+QUALITY_LONGITUDINAL_LOWER_BOUND = -1.00
+QUALITY_LONGITUDINAL_UPPER_BOUND = 0.20
 POINT_CLOUD_SAMPLE_COUNT = 75
 PYVISTA_DELETE_HUE_MAX = 45 / 360.0
 PYVISTA_DELETE_SATURATION_MIN = 0.25
 PRE_MASK_CROP_CONDITION = (
-    "(x0 >= xmin && x0 <= xmax - 0.7*(xmax - xmin)) && "
-    "(y0 >= ymin && y0 <= ymax) && "
-    "(z0 >= zmin && z0 <= zmax - 0.8*(zmax-zmin))"
+    "(((x0 + x1 + x2) / 3) > xmin + 0.45 * (xmax - xmin) && "
+    "((x0 + x1 + x2) / 3) < xmin + 0.55 * (xmax - xmin)) && "
+    "(((y0 + y1 + y2) / 3) >= ymin && ((y0 + y1 + y2) / 3) <= ymax) && "
+    "(((z0 + z1 + z2) / 3) > zmin + 0.60 * (zmax - zmin) && "
+    "((z0 + z1 + z2) / 3) < zmax) && "
+    "(((nz0 + nz1 + nz2) / 3) > 0.25)"
 )
+
+QUALITY_MODE_BOUNDS: dict[str, tuple[float, float]] = {
+    "normal": (QUALITY_NORMAL_LOWER_BOUND, QUALITY_NORMAL_UPPER_BOUND),
+    "transverse": (QUALITY_TRANSVERSE_LOWER_BOUND, QUALITY_TRANSVERSE_UPPER_BOUND),
+    "longitudinal": (QUALITY_LONGITUDINAL_LOWER_BOUND, QUALITY_LONGITUDINAL_UPPER_BOUND),
+}
+VALID_QUALITY_MODES = tuple(QUALITY_MODE_BOUNDS.keys())
 
 
 def stage_banner(title: str) -> None:
@@ -436,32 +448,74 @@ def _load_dual_plane_quality_module():
     if utilities_path not in sys.path:
         sys.path.insert(0, utilities_path)
 
-    import dualPlaneQuality  # type: ignore
+    try:
+        import dualPlaneQuality  # type: ignore
+    except ModuleNotFoundError:
+        import dual_plane_quality as dualPlaneQuality  # type: ignore
 
     return dualPlaneQuality
 
 
-def save_ply_with_dual_named_quality(
+def normalize_quality_modes(modes: Sequence[str]) -> tuple[str, str]:
+    """Validate and normalize the two requested plane-quality modes."""
+    if len(modes) != 2:
+        raise ValueError("Exactly two quality modes are required.")
+
+    normalized = tuple(str(mode).strip().lower() for mode in modes)
+    invalid = [mode for mode in normalized if mode not in QUALITY_MODE_BOUNDS]
+    if invalid:
+        raise ValueError(
+            "Unsupported quality mode(s): "
+            f"{', '.join(invalid)}. Valid modes are: {', '.join(VALID_QUALITY_MODES)}."
+        )
+    if normalized[0] == normalized[1]:
+        raise ValueError("Choose two different quality modes; duplicate modes are not useful for masking.")
+
+    return normalized  # type: ignore[return-value]
+
+
+def quality_property_name(mode: str) -> str:
+    return f"quality_{mode}"
+
+
+def quality_property_names(modes: Sequence[str]) -> tuple[str, ...]:
+    return tuple(quality_property_name(mode) for mode in modes)
+
+
+def describe_quality_ranges(modes: Sequence[str], bounds: dict[str, tuple[float, float]]) -> str:
+    parts = []
+    for mode in modes:
+        lo, hi = bounds[mode]
+        parts.append(f"{mode}=[{lo:.3f}, {hi:.3f}]")
+    return ", ".join(parts)
+
+
+def save_ply_with_named_quality(
     path: str | Path,
     verts: np.ndarray,
     faces: np.ndarray,
-    quality_normal: np.ndarray,
-    quality_transverse: np.ndarray,
+    quality_arrays: dict[str, np.ndarray],
 ) -> None:
-    """Write an ASCII PLY with only the normal/transverse quality arrays."""
+    """Write an ASCII PLY with arbitrary named per-vertex quality arrays."""
     verts = np.asarray(verts, dtype=np.float64)
     faces = np.asarray(faces, dtype=np.int64)
-    quality_normal = np.asarray(quality_normal, dtype=np.float64).reshape(-1)
-    quality_transverse = np.asarray(quality_transverse, dtype=np.float64).reshape(-1)
+    prepared_arrays = {
+        name: np.asarray(values, dtype=np.float64).reshape(-1)
+        for name, values in quality_arrays.items()
+    }
 
     if verts.ndim != 2 or verts.shape[1] != 3:
         raise ValueError("verts must be (N, 3).")
     if faces.ndim != 2 or faces.shape[1] != 3:
         raise ValueError("faces must be (F, 3) triangle indices.")
-    if quality_normal.shape[0] != verts.shape[0]:
-        raise ValueError("quality_normal must have length N.")
-    if quality_transverse.shape[0] != verts.shape[0]:
-        raise ValueError("quality_transverse must have length N.")
+    if not prepared_arrays:
+        raise ValueError("At least one quality array is required.")
+    for name, values in prepared_arrays.items():
+        if values.shape[0] != verts.shape[0]:
+            raise ValueError(f"{name} must have length N (same as number of vertices).")
+
+    quality_names = tuple(prepared_arrays.keys())
+    quality_values = tuple(prepared_arrays[name] for name in quality_names)
 
     with Path(path).open("w", encoding="utf-8") as f:
         f.write("ply\n")
@@ -470,25 +524,29 @@ def save_ply_with_dual_named_quality(
         f.write("property float x\n")
         f.write("property float y\n")
         f.write("property float z\n")
-        f.write("property float quality_normal\n")
-        f.write("property float quality_transverse\n")
+        for name in quality_names:
+            f.write(f"property float {name}\n")
         f.write(f"element face {faces.shape[0]}\n")
         f.write("property list uchar int vertex_indices\n")
         f.write("end_header\n")
 
-        for (x, y, z), q_normal, q_trans in zip(
-            verts,
-            quality_normal,
-            quality_transverse,
-        ):
-            f.write(f"{x:.9g} {y:.9g} {z:.9g} {q_normal:.9g} {q_trans:.9g}\n")
+        for row in zip(verts, *quality_values):
+            xyz = row[0]
+            q_vals = row[1:]
+            f.write(
+                " ".join(f"{val:.9g}" for val in (*xyz, *q_vals))
+                + "\n"
+            )
 
         for i, j, k in faces:
             f.write(f"3 {int(i)} {int(j)} {int(k)}\n")
 
 
-def load_ply_with_dual_named_quality(path: str | Path) -> pv.PolyData:
-    """Read a PLY and preserve the normal/transverse quality vertex properties."""
+def load_ply_with_named_quality(path: str | Path, quality_modes: Sequence[str]) -> pv.PolyData:
+    """Read a PLY and preserve the requested quality vertex properties."""
+    quality_modes = normalize_quality_modes(quality_modes)
+    required_quality_props = quality_property_names(quality_modes)
+
     ply = PlyData.read(str(path))
     if "vertex" not in ply:
         raise ValueError(f"{path} is missing a vertex element.")
@@ -496,7 +554,7 @@ def load_ply_with_dual_named_quality(path: str | Path) -> pv.PolyData:
         raise ValueError(f"{path} is missing a face element.")
 
     vertices = ply["vertex"].data
-    for name in ("x", "y", "z", "quality_normal", "quality_transverse"):
+    for name in ("x", "y", "z", *required_quality_props):
         if name not in vertices.dtype.names:
             raise KeyError(f"Required vertex property {name!r} was not found in {path}.")
 
@@ -521,13 +579,17 @@ def load_ply_with_dual_named_quality(path: str | Path) -> pv.PolyData:
     faces = np.asarray(face_rows, dtype=np.int64)
     faces_pv = np.hstack([np.full((faces.shape[0], 1), 3, dtype=np.int64), faces]).ravel()
     mesh = pv.PolyData(points, faces_pv)
-    mesh.point_data["quality_normal"] = np.asarray(vertices["quality_normal"], dtype=np.float64)
-    mesh.point_data["quality_transverse"] = np.asarray(vertices["quality_transverse"], dtype=np.float64)
+    for prop_name in required_quality_props:
+        mesh.point_data[prop_name] = np.asarray(vertices[prop_name], dtype=np.float64)
     return mesh
 
 
-def enrich_mesh_with_dual_plane_quality(path: str | Path) -> None:
-    """Overwrite a mesh PLY with normal/transverse quality arrays only."""
+def enrich_mesh_with_selected_plane_quality(
+    path: str | Path,
+    quality_modes: Sequence[str],
+) -> tuple[str, str]:
+    """Overwrite a mesh PLY with the two requested plane-quality arrays."""
+    quality_modes = normalize_quality_modes(quality_modes)
     dual_plane_quality = _load_dual_plane_quality_module()
     mesh = load_surface_mesh(str(path))
 
@@ -547,9 +609,10 @@ def enrich_mesh_with_dual_plane_quality(path: str | Path) -> None:
         show_edges=False,
     )
 
+    print(f"Computing selected quality modes: {', '.join(quality_modes)}")
     results = {
-        "normal": dual_plane_quality.compute_plane_quality(ctx, args, "normal", None),
-        "transverse": dual_plane_quality.compute_plane_quality(ctx, args, "transverse", None),
+        mode: dual_plane_quality.compute_plane_quality(ctx, args, mode, None)
+        for mode in quality_modes
     }
 
     for result in results.values():
@@ -557,46 +620,56 @@ def enrich_mesh_with_dual_plane_quality(path: str | Path) -> None:
 
     faces_raw = np.asarray(ctx.mesh.faces, dtype=np.int64).reshape(-1, 4)
     if faces_raw.size == 0:
-        raise SystemExit("tmp/tmp1.ply has no faces after dual-plane quality enrichment.")
+        raise SystemExit("tmp/tmp1.ply has no faces after plane-quality enrichment.")
 
-    save_ply_with_dual_named_quality(
+    quality_arrays = {
+        quality_property_name(mode): np.asarray(ctx.mesh.point_data[quality_property_name(mode)], dtype=np.float64)
+        for mode in quality_modes
+    }
+
+    save_ply_with_named_quality(
         path,
         np.asarray(ctx.mesh.points, dtype=np.float64),
         faces_raw[:, 1:4],
-        np.asarray(ctx.mesh.point_data["quality_normal"], dtype=np.float64),
-        np.asarray(ctx.mesh.point_data["quality_transverse"], dtype=np.float64),
+        quality_arrays,
     )
+    return quality_modes
 
 
-def save_masked_dual_quality_surface(
+def save_masked_selected_quality_surface(
     input_path: str | Path,
     output_path: str | Path,
     *,
-    normal_lower_bound: float,
-    normal_upper_bound: float,
-    transverse_lower_bound: float,
-    transverse_upper_bound: float,
+    quality_modes: Sequence[str],
+    quality_bounds: dict[str, tuple[float, float]] = QUALITY_MODE_BOUNDS,
 ) -> pv.PolyData:
     """
-    Keep only cells whose vertices stay within the configured quality ranges.
+    Keep only cells whose vertices stay within the configured ranges for both selected modes.
     """
-    if normal_lower_bound > normal_upper_bound:
-        raise ValueError("normal_lower_bound cannot be greater than normal_upper_bound.")
-    if transverse_lower_bound > transverse_upper_bound:
-        raise ValueError("transverse_lower_bound cannot be greater than transverse_upper_bound.")
+    quality_modes = normalize_quality_modes(quality_modes)
+    required_quality_props = quality_property_names(quality_modes)
 
-    mesh = load_ply_with_dual_named_quality(input_path).triangulate().clean(tolerance=0.0)
+    for mode in quality_modes:
+        lower_bound, upper_bound = quality_bounds[mode]
+        if lower_bound > upper_bound:
+            raise ValueError(f"{mode}_lower_bound cannot be greater than {mode}_upper_bound.")
 
-    qn = np.asarray(mesh.point_data["quality_normal"], dtype=np.float64)
-    qt = np.asarray(mesh.point_data["quality_transverse"], dtype=np.float64)
-    normal_keep = (qn >= normal_lower_bound) & (qn <= normal_upper_bound)
-    transverse_keep = (qt >= transverse_lower_bound) & (qt <= transverse_upper_bound)
-    keep_mask = normal_keep & transverse_keep
+    mesh = load_ply_with_named_quality(input_path, quality_modes).triangulate().clean(tolerance=0.0)
+
+    keep_mask = np.ones(mesh.n_points, dtype=bool)
+    per_mode_keep: dict[str, np.ndarray] = {}
+    for mode in quality_modes:
+        prop_name = quality_property_name(mode)
+        q = np.asarray(mesh.point_data[prop_name], dtype=np.float64)
+        lower_bound, upper_bound = quality_bounds[mode]
+        mode_keep = (q >= lower_bound) & (q <= upper_bound)
+        per_mode_keep[mode] = mode_keep
+        keep_mask &= mode_keep
+
     if not np.any(keep_mask):
         raise SystemExit(
-            "No vertices satisfied the dual-quality mask within "
-            f"normal=[{normal_lower_bound:.3f}, {normal_upper_bound:.3f}] and "
-            f"transverse=[{transverse_lower_bound:.3f}, {transverse_upper_bound:.3f}]."
+            "No vertices satisfied the selected quality mask within "
+            f"{describe_quality_ranges(quality_modes, quality_bounds)}."
         )
 
     mesh.point_data["keep"] = keep_mask.astype(np.uint8)
@@ -604,40 +677,41 @@ def save_masked_dual_quality_surface(
     masked_mesh = masked_vol.extract_surface().triangulate().clean(tolerance=0.0)
 
     if masked_mesh.n_points == 0 or masked_mesh.n_cells == 0:
-        raise SystemExit("Dual-quality masking removed all surface cells; cannot continue.")
+        raise SystemExit("Selected-quality masking removed all surface cells; cannot continue.")
 
     log_pyvista_mesh(
         masked_mesh,
-        "masked dual-quality surface",
-        required_arrays=("quality_normal", "quality_transverse"),
+        "masked selected-quality surface",
+        required_arrays=required_quality_props,
         require_faces=True,
     )
     print(
-        "Dual-quality mask kept "
+        "Selected-quality mask kept "
         f"{masked_mesh.n_points} vertices and {masked_mesh.n_cells} faces "
-        f"within normal=[{normal_lower_bound:.3f}, {normal_upper_bound:.3f}] "
-        f"and transverse=[{transverse_lower_bound:.3f}, {transverse_upper_bound:.3f}]."
+        f"within {describe_quality_ranges(quality_modes, quality_bounds)}."
     )
-    print(
-        "Mask failures: "
-        f"normal={int(np.sum(~normal_keep))}, "
-        f"transverse={int(np.sum(~transverse_keep))}, "
-        f"combined={int(np.sum(~keep_mask))}."
-    )
+    failure_parts = [
+        f"{mode}={int(np.sum(~per_mode_keep[mode]))}"
+        for mode in quality_modes
+    ]
+    failure_parts.append(f"combined={int(np.sum(~keep_mask))}")
+    print("Mask failures: " + ", ".join(failure_parts) + ".")
 
     faces_raw = np.asarray(masked_mesh.faces, dtype=np.int64).reshape(-1, 4)
     if faces_raw.size == 0:
         raise SystemExit("Masked mesh has no faces after thresholding; cannot export.")
 
-    save_ply_with_dual_named_quality(
+    quality_arrays = {
+        prop_name: np.asarray(masked_mesh.point_data[prop_name], dtype=np.float64)
+        for prop_name in required_quality_props
+    }
+    save_ply_with_named_quality(
         output_path,
         np.asarray(masked_mesh.points, dtype=np.float64),
         faces_raw[:, 1:4],
-        np.asarray(masked_mesh.point_data["quality_normal"], dtype=np.float64),
-        np.asarray(masked_mesh.point_data["quality_transverse"], dtype=np.float64),
+        quality_arrays,
     )
     return masked_mesh
-
 
 def _safe_remove_observer(iren, obs_id: Optional[int]) -> None:
     """Remove a VTK observer in a version-tolerant way."""
@@ -936,6 +1010,19 @@ def main() -> int:
                 "Defaults to <input_stem>_scaled_polydata.ply"
             ),
         )
+    ap.add_argument(
+            "--quality-modes",
+            "--body-quality-modes",
+            nargs=2,
+            default=("normal", "transverse"),
+            choices=VALID_QUALITY_MODES,
+            metavar=("MODE_A", "MODE_B"),
+            help=(
+                "Choose exactly two plane-quality algorithms for masking. "
+                "Options: normal, transverse, longitudinal. "
+                "Default: normal transverse."
+            ),
+        )
     
     argv = sys.argv
         
@@ -945,6 +1032,11 @@ def main() -> int:
         argv = argv[1:]
 
     args = ap.parse_args(argv)
+    try:
+        args.quality_modes = normalize_quality_modes(args.quality_modes)
+    except ValueError as exc:
+        ap.error(str(exc))
+    print(f"Selected quality masking algorithms: {', '.join(args.quality_modes)}")
     
     if args.stl and args.input and Path(args.stl) != Path(args.input):
         ap.error("Input path conflict: positional 'stl' and '--input' differ. Use only one.")
@@ -1031,30 +1123,31 @@ def main() -> int:
     pre_mask_surface_id = ms.current_mesh_id()
     set_current_pymeshlab_mesh(ms, pre_mask_surface_id, "legacy pre-mask crop result", require_faces=True)
 
-    stage_banner("Dual-Quality Enrichment and Masking")
+    stage_banner("Selected Quality Enrichment and Masking")
     ms.save_current_mesh(str(pipeline_paths.tmp1))
     log_ply_summary(pipeline_paths.tmp1, "tmp1 before enrichment", require_faces=True)
 
-    enrich_mesh_with_dual_plane_quality(pipeline_paths.tmp1)
+    quality_modes = args.quality_modes
+    required_quality_props = quality_property_names(quality_modes)
+
+    enrich_mesh_with_selected_plane_quality(pipeline_paths.tmp1, quality_modes)
     log_ply_summary(
         pipeline_paths.tmp1,
         "tmp1 after enrichment",
-        required_properties=("quality_normal", "quality_transverse"),
+        required_properties=required_quality_props,
         require_faces=True,
     )
 
-    save_masked_dual_quality_surface(
+    save_masked_selected_quality_surface(
         pipeline_paths.tmp1,
         pipeline_paths.masked_output,
-        normal_lower_bound=QUALITY_NORMAL_LOWER_BOUND,
-        normal_upper_bound=QUALITY_NORMAL_UPPER_BOUND,
-        transverse_lower_bound=QUALITY_TRANSVERSE_LOWER_BOUND,
-        transverse_upper_bound=QUALITY_TRANSVERSE_UPPER_BOUND,
+        quality_modes=quality_modes,
+        quality_bounds=QUALITY_MODE_BOUNDS,
     )
     log_ply_summary(
         pipeline_paths.masked_output,
         "masked output",
-        required_properties=("quality_normal", "quality_transverse"),
+        required_properties=required_quality_props,
         require_faces=True,
     )
 
@@ -1137,13 +1230,10 @@ def main() -> int:
     ms.meshing_remove_selected_faces()
     ms.meshing_remove_selected_vertices()
     log_current_pymeshlab_mesh(ms, "post-subtraction mesh after hole close/component removal", require_faces=True)
-    ms.meshing_isotropic_explicit_remeshing(
-        iterations=10,
-        adaptive=True,
-        checksurfdist=True,
-        targetlen=ml.PercentageValue(0.250),
-    )
-    ms.apply_coord_laplacian_smoothing(stepsmoothnum=50)
+    ms.apply_coord_laplacian_smoothing(stepsmoothnum=10)
+    ms.meshing_decimation_quadric_edge_collapse()
+    ms.meshing_isotropic_explicit_remeshing(adaptive = True, targetlen = ml.PercentageValue(0.500024))
+    # ms.save_current_mesh("holysigma.ply")
     smooth_mesh = log_current_pymeshlab_mesh(ms, "smoothed post-subtraction mesh", require_faces=True)
 
     stage_banner("Blender Thickening and Final Export")
@@ -1152,13 +1242,13 @@ def main() -> int:
     final_obj = create_blender_mesh_object("pymlMesh", smooth_vertices, smooth_faces)
 
     displace = final_obj.modifiers.new(name="Displace", type="DISPLACE")
-    displace.strength = 1.0
+    displace.strength = 2.5
     displace.mid_level = 0.5
     displace.direction = "NORMAL"
     displace.space = "LOCAL"
 
     solid = final_obj.modifiers.new(name="Solidify", type="SOLIDIFY")
-    solid.thickness = 2.5
+    solid.thickness = 7.0
     solid.offset = 1.0
     solid.use_even_offset = False
 
@@ -1174,6 +1264,11 @@ def main() -> int:
         log_ply_summary(outputfile, "final output", require_faces=True)
     else:
         log_surface_file(outputfile, "final output surface")
+
+    ms.load_new_mesh(str(outputfile))
+    log_current_pymeshlab_mesh(ms, "final output mesh loaded into PyMeshLab", require_faces=True)
+    ms.apply_coord_laplacian_smoothing(stepsmoothnum = 4, cotangentweight = False)
+    ms.save_current_mesh("output.ply")
 
     return 0
 
