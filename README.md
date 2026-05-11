@@ -35,7 +35,7 @@ The current primary runnable pipeline is `VoronoiFinal.py`.
 
 ## Current Status
 - Active end-to-end script: `VoronoiFinal.py`
-- In-progress consumable package: `mesh_interlibrary_formatter/`
+- Consumable package available: `mesh_interlibrary_formatter/`
 - Regression harness: `tests/test_phase4_regressions.py`
 
 ---
@@ -129,7 +129,7 @@ Current scaffold command:
 python -m mesh_interlibrary_formatter.cli.scale_calibrate --help
 ```
 
-This CLI exists and parses arguments, but full calibration behavior is still pending.
+This CLI now performs end-to-end uniform scale calibration (load -> scale -> export).
 
 ---
 
@@ -144,7 +144,7 @@ python -m unittest discover -s tests -p "test_*.py" -v
 ## Known Limitations
 - `VoronoiFinal.py` is interactive and GUI-dependent (PyVista + Blender context).
 - End-to-end Blender pipeline validation is not fully automated.
-- `mesh_interlibrary_formatter` is importable but still functionally incomplete as a full consumable package.
+- `mesh_interlibrary_formatter` now includes adapter-based loading/formatting and a working scale calibration CLI.
 
 ---
 
