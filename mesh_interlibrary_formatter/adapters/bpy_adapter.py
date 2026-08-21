@@ -67,14 +67,14 @@ def from_bpy_object(obj) -> MeshData:
     return MeshData(V=V, F=F, VN=VN, FN=FN, C=C)
 
 
-def to_bpy_object(meshdata: MeshData, bpy, name: str = "MILF_Mesh"):
+def to_bpy_object(meshdata: MeshData, bpy, name: str = "MeshData_Mesh"):
     """
     Convert MeshData into a Blender mesh object.
 
     Parameters
     ----------
     meshdata : MeshData
-        MILF mesh representation
+        Neutral MeshData representation
     bpy : module
         Blender bpy module, passed in explicitly
     name : str
@@ -99,7 +99,7 @@ def to_bpy_object(meshdata: MeshData, bpy, name: str = "MILF_Mesh"):
     return obj
 
 
-def to_bpy_object_linked(meshdata: MeshData, bpy, name: str = "MILF_Mesh", collection=None):
+def to_bpy_object_linked(meshdata: MeshData, bpy, name: str = "MeshData_Mesh", collection=None):
     """
     Convert MeshData into a Blender object and link it to a collection.
 

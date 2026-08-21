@@ -25,6 +25,8 @@ def from_trimesh(mesh: trimesh.Trimesh) -> MeshData:
     if hasattr(mesh.visual, "vertex_colors") and mesh.visual.vertex_colors is not None:
         vc = np.asarray(mesh.visual.vertex_colors)
         if vc.ndim == 2 and vc.shape[0] == len(V) and vc.shape[1] in (3, 4):
+            if vc.shape[1] == 4 and np.all(vc[:, 3] == 255):
+                vc = vc[:, :3]
             C = vc
 
     return MeshData(V=V, F=F, VN=VN, FN=FN, C=C)
@@ -51,7 +53,8 @@ def to_trimesh(meshdata: MeshData) -> trimesh.Trimesh:
 
     if meshdata.C is not None:
         try:
-            mesh.visual.vertex_colors = np.asarray(meshdata.C)
+            colors = np.asarray(meshdata.C, dtype=np.float32)
+            mesh.visual.vertex_colors = np.clip(np.rint(colors * 255.0), 0, 255).astype(np.uint8)
         except Exception:
             pass
 

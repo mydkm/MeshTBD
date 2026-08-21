@@ -61,27 +61,31 @@ def to_pymeshlab_mesh(meshdata: MeshData) -> pymeshlab.Mesh:
     Convert MeshData into a pymeshlab.Mesh.
     """
     kwargs = {
-        "vertex_matrix": np.asarray(meshdata.V, dtype=np.float32),
+        "vertex_matrix": np.asarray(meshdata.V, dtype=np.float64),
     }
 
     if meshdata.F is not None:
         kwargs["face_matrix"] = np.asarray(meshdata.F, dtype=np.int32)
 
     if meshdata.VN is not None:
-        kwargs["v_normals_matrix"] = np.asarray(meshdata.VN, dtype=np.float32)
+        kwargs["v_normals_matrix"] = np.asarray(meshdata.VN, dtype=np.float64)
+
+    if meshdata.FN is not None:
+        kwargs["f_normals_matrix"] = np.asarray(meshdata.FN, dtype=np.float64)
 
     if meshdata.C is not None:
         colors = np.asarray(meshdata.C)
 
-        # PyMeshLab generally works well with float colors.
-        # Keep RGB or RGBA only.
+        # PyMeshLab expects normalized float64 RGBA colors.
         if colors.ndim == 2 and colors.shape[1] in (3, 4):
-            kwargs["v_color_matrix"] = colors.astype(np.float32)
+            if colors.shape[1] == 3:
+                colors = np.column_stack([colors, np.ones(len(colors), dtype=np.float32)])
+            kwargs["v_color_matrix"] = colors.astype(np.float64)
 
     return pymeshlab.Mesh(**kwargs)
 
 
-def to_pymeshlab_meshset(meshdata: MeshData, name: str = "MILF_mesh") -> pymeshlab.MeshSet:
+def to_pymeshlab_meshset(meshdata: MeshData, name: str = "MeshData_mesh") -> pymeshlab.MeshSet:
     """
     Convert MeshData into a pymeshlab.MeshSet containing one mesh.
     """
