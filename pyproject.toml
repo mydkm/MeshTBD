@@ -1,13 +1,14 @@
 [project]
 name = "MeshTBD"
 version = "0.1.0"
-description = "Modern 3D processing software sucks, especially when it comes to its scripting capabiltiies. We aren't tackling a full app as of yet, we're starting with turning a 3D model of a body part into a cast with a Voronoi pattern with some help with M.I.L.F."
+description = "Script-driven anatomical mesh processing and cross-library interoperability for personalized 3D-printable cast geometry."
 readme = "README.md"
 requires-python = "==3.11.13"
 dependencies = [
     "bpy>=4.5.1",
     "numpy>=1.26.4",
     "open3d>=0.19.0",
+    "plyfile>=1.1.2",
     "polyscope>=2.6.0",
     "pymeshlab>=2023.12.post3",
     "pyvista>=0.46.1",

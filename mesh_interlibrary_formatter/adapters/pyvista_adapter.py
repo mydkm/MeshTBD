@@ -33,12 +33,32 @@ def _extract_triangle_faces_from_pyvista(mesh: pv.PolyData) -> np.ndarray | None
 
 def _find_vertex_colors(mesh: pv.PolyData, n_vertices: int) -> np.ndarray | None:
     """
-    Heuristic: return the first point_data array shaped like vertex colors,
-    i.e. (N, 3) or (N, 4).
+    Return a point-data array that represents RGB or RGBA vertex colors.
+
+    Normal vectors are also shaped (N, 3), so shape alone is not sufficient.
+    Prefer conventional color-array names and use a conservative fallback.
     """
-    for _, arr in mesh.point_data.items():
-        a = np.asarray(arr)
+    preferred_names = ("Colors", "colors", "RGB", "rgb", "RGBA", "rgba")
+    for name in preferred_names:
+        if name not in mesh.point_data:
+            continue
+        a = np.asarray(mesh.point_data[name])
         if a.ndim == 2 and a.shape[0] == n_vertices and a.shape[1] in (3, 4):
+            return a
+
+    for name, arr in mesh.point_data.items():
+        if "normal" in name.lower():
+            continue
+        a = np.asarray(arr)
+        if (
+            a.ndim == 2
+            and a.shape[0] == n_vertices
+            and a.shape[1] in (3, 4)
+            and np.issubdtype(a.dtype, np.number)
+            and np.isfinite(a).all()
+            and np.all(a >= 0)
+            and np.all(a <= 255)
+        ):
             return a
     return None
 
@@ -61,7 +81,9 @@ def from_pyvista(mesh) -> MeshData:
 
     VN = None
     try:
-        point_normals = mesh.point_normals
+        point_normals = mesh.point_data.get("Normals")
+        if point_normals is None:
+            point_normals = mesh.point_normals
         if point_normals is not None and len(point_normals) == len(V):
             VN = np.asarray(point_normals, dtype=np.float32)
     except Exception:
@@ -69,7 +91,9 @@ def from_pyvista(mesh) -> MeshData:
 
     FN = None
     try:
-        face_normals = mesh.face_normals
+        face_normals = mesh.cell_data.get("Normals")
+        if face_normals is None:
+            face_normals = mesh.face_normals
         if face_normals is not None and F is not None and len(face_normals) == len(F):
             FN = np.asarray(face_normals, dtype=np.float32)
     except Exception:
@@ -103,9 +127,11 @@ def to_pyvista(meshdata: MeshData) -> pv.PolyData:
 
     if meshdata.VN is not None:
         mesh.point_data["Normals"] = np.asarray(meshdata.VN, dtype=np.float32)
+        mesh.point_data.active_normals_name = "Normals"
 
     if meshdata.FN is not None and meshdata.F is not None:
         mesh.cell_data["Normals"] = np.asarray(meshdata.FN, dtype=np.float32)
+        mesh.cell_data.active_normals_name = "Normals"
 
     if meshdata.C is not None:
         mesh.point_data["Colors"] = np.asarray(meshdata.C)

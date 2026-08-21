@@ -16,6 +16,8 @@ from pathlib import Path  # noqa: F401
 import bmesh  # noqa: F401
 from plyfile import PlyData
 
+from mesh_interlibrary_formatter import from_pymeshlab, to_pyvista
+
 # Prefer PyVista's VTK shim; fall back to vtk if needed.
 try:
     import pyvista._vtk as vtk  # type: ignore
@@ -1108,6 +1110,13 @@ def main() -> int:
         scaled_polydata_out = in_path.with_name(f"{in_path.stem}_scaled_polydata.ply")
     scaled_polydata_out = scaled_polydata_out.resolve()
     print(f"[scaled-polydata] target path: {scaled_polydata_out}")
+    scaled_polydata_out.parent.mkdir(parents=True, exist_ok=True)
+    ms.save_current_mesh(str(scaled_polydata_out))
+    ensure_file_exists(scaled_polydata_out, "scaled PolyData export")
+    if scaled_polydata_out.suffix.lower() == ".ply":
+        log_ply_summary(scaled_polydata_out, "scaled PolyData export", require_faces=True)
+    else:
+        log_surface_file(scaled_polydata_out, "scaled PolyData export")
 
     ms.generate_surface_reconstruction_vcg(voxsize=ml.PercentageValue(0.50))
     reconstructed_surface_id = ms.current_mesh_id()
@@ -1171,14 +1180,18 @@ def main() -> int:
 
     stage_banner("PyVista Color Selection")
     csurface = ms.current_mesh()
-    cvertices = csurface.vertex_matrix()
-    cfaces = csurface.face_matrix()
-    colors = csurface.vertex_color_matrix()
-    cfaces_pv = np.hstack(
-        [np.full((cfaces.shape[0], 1), 3, dtype=np.int64), cfaces]
-    ).ravel()
-    cmesh = pv.PolyData(cvertices, cfaces_pv)
+    projected_meshdata = from_pymeshlab(csurface)
+    if projected_meshdata.C is None:
+        raise SystemExit("Voronoi projection did not produce vertex colors for the MeshData bridge.")
+    cmesh = to_pyvista(projected_meshdata)
+    colors = np.asarray(cmesh.point_data.pop("Colors"), dtype=np.float32)
     cmesh.point_data["RGBA"] = colors
+    cmesh.set_active_scalars("RGBA", preference="point")
+    print(
+        "[MeshData bridge] PyMeshLab -> MeshData -> PyVista: "
+        f"vertices={projected_meshdata.n_vertices()}, "
+        f"faces={projected_meshdata.n_faces()}, colors={projected_meshdata.C.shape}"
+    )
     log_pyvista_mesh(cmesh, "PyVista projected surface", required_arrays=("RGBA",), require_faces=True)
     cmesh.plot(rgb=True)
 

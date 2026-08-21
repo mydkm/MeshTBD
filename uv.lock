@@ -82,7 +82,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -596,6 +596,7 @@ dependencies = [
     { name = "bpy" },
     { name = "numpy" },
     { name = "open3d" },
+    { name = "plyfile" },
     { name = "polyscope" },
     { name = "pymeshlab" },
     { name = "pyvista" },
@@ -615,6 +616,7 @@ requires-dist = [
     { name = "bpy", specifier = ">=4.5.1" },
     { name = "numpy", specifier = ">=1.26.4" },
     { name = "open3d", specifier = ">=0.19.0" },
+    { name = "plyfile", specifier = ">=1.1.2" },
     { name = "polyscope", specifier = ">=2.6.0" },
     { name = "pymeshlab", specifier = ">=2023.12.post3" },
     { name = "pyvista", specifier = ">=0.46.1" },
@@ -801,6 +803,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/06/e6/b768650072837505804bed4790c5449ba348a3b720e27ca7605414e998cd/plotly-6.4.0.tar.gz", hash = "sha256:68c6db2ed2180289ef978f087841148b7efda687552276da15a6e9b92107052a", size = 7012379, upload-time = "2025-11-04T17:59:26.45Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/78/ae/89b45ccccfeebc464c9233de5675990f75241b8ee4cd63227800fdf577d1/plotly-6.4.0-py3-none-any.whl", hash = "sha256:a1062eafbdc657976c2eedd276c90e184ccd6c21282a5e9ee8f20efca9c9a4c5", size = 9892458, upload-time = "2025-11-04T17:59:22.622Z" },
+]
+
+[[package]]
+name = "plyfile"
+version = "1.1.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/78/d8/f68ec9a54568236ba4c00fc0b002f74d2a559841c1fce86ab356599da032/plyfile-1.1.3.tar.gz", hash = "sha256:1c37720cb0470b762cec2dfef573ee7996a616c359c0ec34fdd766ace3ea0634", size = 36163, upload-time = "2025-10-22T01:58:40.06Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/22/22/1755bb4c7db15bb1ed63b4eb7a7fc133bf42a3f9cc806c0d5941e107ba90/plyfile-1.1.3-py3-none-any.whl", hash = "sha256:581302f07b1c298431dcaa9038bba2ae80f3f7868b29ccb826a07bc4488ff38a", size = 36455, upload-time = "2025-10-22T01:58:38.614Z" },
 ]
 
 [[package]]

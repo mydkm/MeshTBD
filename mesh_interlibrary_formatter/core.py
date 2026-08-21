@@ -12,13 +12,20 @@ class MeshData:
     F: Optional[np.ndarray]    # (M, 3) int faces, None for point cloud
     VN: Optional[np.ndarray]   # (N, 3) float vertex normals
     FN: Optional[np.ndarray]   # (M, 3) float face normals
-    C: Optional[np.ndarray]    # (N, 3) or (N, 4) colors
+    C: Optional[np.ndarray]    # (N, 3) or (N, 4) float colors in [0, 1]
 
     def __post_init__(self) -> None:
         self.V = np.asarray(self.V, dtype=np.float32)
 
         if self.F is not None:
-            self.F = np.asarray(self.F, dtype=np.int32)
+            faces = np.asarray(self.F)
+            if not np.issubdtype(faces.dtype, np.number):
+                raise TypeError("F must be a numeric array of integer indices")
+            if not np.isfinite(faces).all():
+                raise ValueError("F contains non-finite values")
+            if not np.equal(faces, np.floor(faces)).all():
+                raise ValueError("F contains non-integer index values")
+            self.F = faces.astype(np.int32, copy=False)
 
         if self.VN is not None:
             self.VN = np.asarray(self.VN, dtype=np.float32)
@@ -27,7 +34,17 @@ class MeshData:
             self.FN = np.asarray(self.FN, dtype=np.float32)
 
         if self.C is not None:
-            self.C = np.asarray(self.C)
+            colors = np.asarray(self.C)
+            if not np.issubdtype(colors.dtype, np.number):
+                raise TypeError("C must be a numeric array")
+            colors = colors.astype(np.float32, copy=False)
+            if not np.isfinite(colors).all():
+                raise ValueError("C contains non-finite values")
+            if colors.size and float(colors.max()) > 1.0:
+                if float(colors.max()) > 255.0:
+                    raise ValueError("C values must use either [0, 1] or [0, 255] range")
+                colors = colors / 255.0
+            self.C = colors
 
         self.validate()
 
@@ -45,8 +62,8 @@ class MeshData:
         if not np.issubdtype(self.V.dtype, np.floating):
             raise TypeError("V must be a floating-point array")
 
-        if np.isnan(self.V).any():
-            raise ValueError("V contains NaN values")
+        if not np.isfinite(self.V).all():
+            raise ValueError("V contains non-finite values")
 
         if self.F is not None:
             if self.F.ndim != 2 or self.F.shape[1] != 3:
@@ -66,6 +83,8 @@ class MeshData:
                 raise ValueError(f"VN must have shape (N, 3), got {self.VN.shape}")
             if len(self.VN) != len(self.V):
                 raise ValueError("VN must have the same number of rows as V")
+            if not np.isfinite(self.VN).all():
+                raise ValueError("VN contains non-finite values")
 
         if self.FN is not None:
             if self.F is None:
@@ -74,6 +93,8 @@ class MeshData:
                 raise ValueError(f"FN must have shape (M, 3), got {self.FN.shape}")
             if len(self.FN) != len(self.F):
                 raise ValueError("FN must have the same number of rows as F")
+            if not np.isfinite(self.FN).all():
+                raise ValueError("FN contains non-finite values")
 
         if self.C is not None:
             if self.C.ndim != 2:
@@ -82,6 +103,8 @@ class MeshData:
                 raise ValueError("C must have shape (N, 3) or (N, 4)")
             if len(self.C) != len(self.V):
                 raise ValueError("C must have the same number of rows as V")
+            if np.any(self.C < 0.0) or np.any(self.C > 1.0):
+                raise ValueError("C must contain normalized color values in [0, 1]")
 
     def is_point_cloud(self) -> bool:
         return self.F is None
@@ -117,6 +140,8 @@ class MeshData:
         """
         Return a scaled copy of the mesh.
         """
+        if not np.isfinite(scale) or scale <= 0:
+            raise ValueError("scale must be a finite value greater than zero")
         out = self.copy()
         out.V *= scale
         return out
